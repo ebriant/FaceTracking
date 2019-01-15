@@ -1,5 +1,5 @@
 import cv2
-
+import numpy as np
 
 def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     p1 = (int(bbox[0]), int(bbox[1]))
@@ -10,7 +10,7 @@ def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     return
 
 
-def plt_img(img, bboxes, classes=[], scores=[], title="image"):
+def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False):
     height = img.shape[0]
     width = img.shape[1]
     selected_bbox = []
@@ -18,10 +18,16 @@ def plt_img(img, bboxes, classes=[], scores=[], title="image"):
     b, g, r = cv2.split(img)  # get b,g,r
     img = cv2.merge([r, g, b])  # switch it to rgb
     for i in range(bboxes.shape[0]):
-        xmin = int(bboxes[i, 0] * height)
-        ymin = int(bboxes[i, 1] * width)
-        xmax = int(bboxes[i, 2] * height)
-        ymax = int(bboxes[i, 3] * width)
+        if np.amax(bboxes[i]) <= 1:
+            xmin = int(bboxes[i, 0] * height)
+            ymin = int(bboxes[i, 1] * width)
+            xmax = int(bboxes[i, 2] * height)
+            ymax = int(bboxes[i, 3] * width)
+        else:
+            xmin = int(bboxes[i, 0])
+            ymin = int(bboxes[i, 1])
+            xmax = int(bboxes[i, 2])
+            ymax = int(bboxes[i, 3])
 
         bbox = [xmin, ymin, xmax, ymax]
         bboxes_px.append(bbox)
@@ -34,7 +40,6 @@ def plt_img(img, bboxes, classes=[], scores=[], title="image"):
                     draw_bbox(img, bbox, "selected", (255, 0, 0))
                     cv2.imshow(title, img)
                     selected_bbox.append(bbox)
-                    print("++++++++++++  ", selected_bbox)
 
     def is_in_bbox(box, x, y):
         if box[0] <= y <= box[2] and box[1] <= x <= box[3]:
@@ -42,9 +47,15 @@ def plt_img(img, bboxes, classes=[], scores=[], title="image"):
         return False
 
     cv2.namedWindow(title)
-    cv2.setMouseCallback(title, mouse_position)
-    cv2.imshow(title, img)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+    if callback:
+        cv2.setMouseCallback(title, mouse_position)
+        cv2.imshow(title, img)
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+    else:
+        while True:
+            cv2.imshow(title, img)
+            if cv2.waitKey(1):
+                break
 
     return selected_bbox

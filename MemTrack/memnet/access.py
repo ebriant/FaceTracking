@@ -9,6 +9,7 @@ import collections
 import tensorflow as tf
 from memnet.addressing import cosine_similarity, attention_read, update_usage, calc_allocation_weight
 from feature import get_key_feature
+import sys
 sys.path.append('../')
 import config
 

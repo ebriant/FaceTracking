@@ -1,7 +1,7 @@
 import os
 
-data_dir = "/data"
-sequence_path = os.path.join(data_dir, "children.mp4")
+data_dir = "data"
+sequence_path = os.path.join(data_dir, "sequence.mp4")
 img_path = os.path.join(data_dir, "img")
 save_box = True
 
@@ -82,9 +82,9 @@ lr_decay = 0.8
 learning_rate = 0.0001
 use_focal_loss = False
 
-summaries_dir = 'output/summary/'
-checkpoint_dir = 'output/models/'
-pretrained_model_checkpoint_path = 'output/pre_models/'
+summaries_dir = 'MemTrack/output/summary/'
+checkpoint_dir = 'MemTrack/output/models/'
+pretrained_model_checkpoint_path = 'MemTrack/output/pre_models/'
 
 summary_save_step = 500
 model_save_step = 5000

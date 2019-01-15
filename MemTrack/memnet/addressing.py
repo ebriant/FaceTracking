@@ -15,7 +15,7 @@ _EPSILON = 1e-6
 
 def _vector_norms(m):
 
-    squared_norms = tf.reduce_sum(m * m, axis=2, keep_dims=True)
+    squared_norms = tf.reduce_sum(m * m, axis=2, keepdims=True)
     return tf.sqrt(squared_norms + _EPSILON)
 
 def _weighted_softmax(activations, strengths, strengths_op):
