@@ -74,43 +74,78 @@ def load_seq_video():
     return s_frames
 
 
-def load_init():
-    src = os.path.join(config.data_dir, 'init_rect.txt')
-    gt_file = open(src)
-    lines = gt_file.readlines()
-    gt_rects = []
-    for gt_rect in lines:
-        rect = [int(v) for v in gt_rect[:-1].split(',')]
-        gt_rects.append(rect)
-    init_rect = gt_rects[0]
-    return gt_rects
+def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
+    bbox = []
+    last_frame= min(first_frame+config.checking_treshold,len(s_frames))
 
-
-def run_tracker(bboxes_list, s_frames):
-    config_proto = tf.ConfigProto()
-    config_proto.gpu_options.allow_growth = True
-    with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+    if keep_tracker is None:
+        config_proto = tf.ConfigProto()
+        config_proto.gpu_options.allow_growth = True
+        sess = tf.Graph().as_default()
+        sess = tf.Session(config=config_proto)
         model = Model(sess)
         tracker = Tracker(model)
-        for bbox in bboxes_list:
-            result = [bbox]
-            start_time = time.time()
-            tracker.initialize(s_frames[0], bbox)
+    with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+        if
+        model = Model(sess)
+        tracker = Tracker(model)
 
-            for idx in range(1, len(s_frames)):
-                tracker.idx = idx
-                bbox, cur_frame = tracker.track(s_frames[idx])
+        start_time = time.time()
+        tracker.initialize(s_frames[first_frame], init_bbox)
 
-                # display_result(cur_frame, bbox, idx, "Children_a")
-                # bbox = np.array([[int(n) for n in bbox]])
-                bbox = np.array([[bbox[1], bbox[0], bbox[1] + bbox[3], bbox[0] + bbox[2]]])
-                visualization.plt_img(cur_frame, bbox)
+        for idx in range(first_frame+1, last_frame):
+            tracker.idx = idx
+            bbox, cur_frame = tracker.track(s_frames[idx])
 
-                # result.append(bbox.tolist())
-            end_time = time.time()
+            # display_result(cur_frame, bbox, idx, "Children_a")
+            # bbox = np.array([[int(n) for n in bbox]])
+            bbox = np.array([[bbox[1], bbox[0], bbox[1] + bbox[3], bbox[0] + bbox[2]]])
+            visualization.plt_img(cur_frame, bbox)
 
-            fps = idx / (end_time - start_time)
+            # result.append(bbox.tolist())
+        end_time = time.time()
 
+    img = mpimg.imread(s_frames[last_frame])
+    img = np.array(img)
+    check = check_tracking(img, bbox)
+    if check:
+
+    else:
+
+        if last_frame<len(s_frames):
+            run_tracker(init_bbox,s_frames,last_frame)
+
+
+def check_tracking(img, bbox):
+    rclasses, rscores, rbboxes = process_image(img)
+    if len(rbboxes)>0:
+        if bb_intersection_over_union(bbox, rbboxes[0])>0.5:
+            return rbboxes[0]
+    return False
+
+
+def bb_intersection_over_union(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    # compute the area of intersection rectangle
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+
+    # return the intersection over union value
+    return iou
 
 def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     # Run SSD network.

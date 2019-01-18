@@ -12,7 +12,9 @@ import config
 from model import build_initial_state, build_model, ModeKeys
 from memnet.memnet import MemNet, AccessState, MemNetState
 import math
+
 sys.path.append('../')
+
 
 class Model():
     def __init__(self, sess, checkpoint_dir=None):
@@ -24,20 +26,25 @@ class Model():
         self.x_file = tf.placeholder(tf.string, [], name='x_filename')
         self.x_roi = tf.placeholder(tf.float32, [config.num_scale, 4], name='x_roi')
 
-        init_z_exemplar,_ = self._read_and_crop_image(self.z_file_init, self.z_roi_init, [config.z_exemplar_size, config.z_exemplar_size])
+        init_z_exemplar, _ = self._read_and_crop_image(self.z_file_init, self.z_roi_init,
+                                                       [config.z_exemplar_size, config.z_exemplar_size])
         init_z_exemplar = tf.reshape(init_z_exemplar, [1, 1, config.z_exemplar_size, config.z_exemplar_size, 3])
         init_z_exemplar = tf.tile(init_z_exemplar, [config.num_scale, 1, 1, 1, 1])
-        z_exemplar,_ = self._read_and_crop_image(self.z_file, self.z_roi, [config.z_exemplar_size, config.z_exemplar_size])
+        z_exemplar, _ = self._read_and_crop_image(self.z_file, self.z_roi,
+                                                  [config.z_exemplar_size, config.z_exemplar_size])
         z_exemplar = tf.reshape(z_exemplar, [1, 1, config.z_exemplar_size, config.z_exemplar_size, 3])
         z_exemplar = tf.tile(z_exemplar, [config.num_scale, 1, 1, 1, 1])
-        self.x_instances, self.image = self._read_and_crop_image(self.x_file, self.x_roi, [config.x_instance_size, config.x_instance_size])
-        self.x_instances = tf.reshape(self.x_instances, [config.num_scale, 1, config.x_instance_size, config.x_instance_size, 3])
+        self.x_instances, self.image = self._read_and_crop_image(self.x_file, self.x_roi,
+                                                                 [config.x_instance_size, config.x_instance_size])
+        self.x_instances = tf.reshape(self.x_instances,
+                                      [config.num_scale, 1, config.x_instance_size, config.x_instance_size, 3])
 
         with tf.variable_scope('mann'):
             mem_cell = MemNet(config.hidden_size, config.memory_size, config.slot_size, False)
 
         self.initial_state = build_initial_state(init_z_exemplar, mem_cell, ModeKeys.PREDICT)
-        self.response, saver, self.final_state = build_model(z_exemplar, self.x_instances, mem_cell, self.initial_state, ModeKeys.PREDICT)
+        self.response, saver, self.final_state = build_model(z_exemplar, self.x_instances, mem_cell, self.initial_state,
+                                                             ModeKeys.PREDICT)
         self.att_score = mem_cell.att_score
 
         up_response_size = config.response_size * config.response_up
@@ -88,14 +95,16 @@ class Model():
         return im_padded, npad
 
     def _crop_image(self, im, npad, frame_sz, rois, model_sz):
-        radius = (rois[:, 2:4]-1) / 2
+        radius = (rois[:, 2:4] - 1) / 2
         c_xy = rois[:, 0:2]
-        self.pad_frame_sz = pad_frame_sz = tf.cast(tf.expand_dims(frame_sz[0:2]+2*npad,0), tf.float32)
+        self.pad_frame_sz = pad_frame_sz = tf.cast(tf.expand_dims(frame_sz[0:2] + 2 * npad, 0), tf.float32)
         npad = tf.cast(npad, tf.float32)
         xy1 = (npad + c_xy - radius)
         xy2 = (npad + c_xy + radius)
-        norm_rect = tf.stack([xy1[:,1], xy1[:,0], xy2[:,1], xy2[:,0]], axis=1)/tf.concat([pad_frame_sz, pad_frame_sz],1)
-        crops = tf.image.crop_and_resize(tf.expand_dims(im, 0), norm_rect, tf.zeros([tf.shape(rois)[0]],tf.int32), model_sz, method='bilinear')
+        norm_rect = tf.stack([xy1[:, 1], xy1[:, 0], xy2[:, 1], xy2[:, 0]], axis=1) / tf.concat(
+            [pad_frame_sz, pad_frame_sz], 1)
+        crops = tf.image.crop_and_resize(tf.expand_dims(im, 0), norm_rect, tf.zeros([tf.shape(rois)[0]], tf.int32),
+                                         model_sz, method='bilinear')
 
         return crops
 
@@ -109,7 +118,8 @@ class Tracker():
         self.idx = 1
 
         # prepare constant things for tracking
-        scale_steps = list(range(math.ceil(config.num_scale / 2) - config.num_scale, math.floor(config.num_scale / 2) + 1))
+        scale_steps = list(
+            range(math.ceil(config.num_scale / 2) - config.num_scale, math.floor(config.num_scale / 2) + 1))
         self.scales = np.power(config.scale_multipler, scale_steps)
 
         up_response_size = config.response_size * config.response_up
@@ -175,31 +185,32 @@ class Tracker():
         self.x_roi_size = calc_x_size(self.z_roi_size)
         z_roi = np.concatenate([self.target_pos, self.z_roi_size], 0)
         next_state = self._sess.run(self._model.initial_state,
-                                             {self._model.z_file_init: init_frame_file,
-                                              self._model.z_roi_init: [z_roi]})
+                                    {self._model.z_file_init: init_frame_file,
+                                     self._model.z_roi_init: [z_roi]})
         self.next_state = next_state
         self.pre_frame_file = init_frame_file
 
     def track(self, cur_frame_file, display=False):
         # build pyramid of search images
         sx_roi_size = np.round(np.expand_dims(self.x_roi_size, 0) * np.expand_dims(self.scales, 1))
-        target_poses = np.tile(np.expand_dims(self.target_pos,axis=0), [config.num_scale,1])
+        target_poses = np.tile(np.expand_dims(self.target_pos, axis=0), [config.num_scale, 1])
         x_rois = np.concatenate([target_poses, sx_roi_size], axis=1)
         z_roi = np.concatenate([self.target_pos, self.z_roi_size], 0)
-        att_score, responses, cur_frame,\
+        att_score, responses, cur_frame, \
         x_instances, self.next_state = self._sess.run([self._model.att_score,
                                                        self._model.up_response,
                                                        self._model.image,
                                                        self._model.x_instances,
                                                        self._model.final_state],
-                                                           {self._model.x_file: cur_frame_file,
-                                                            self._model.x_roi: x_rois,
-                                                            self._model.z_file: self.pre_frame_file,
-                                                            self._model.z_roi: [z_roi],
-                                                            self._model.initial_state: self.next_state})
+                                                      {self._model.x_file: cur_frame_file,
+                                                       self._model.x_roi: x_rois,
+                                                       self._model.z_file: self.pre_frame_file,
+                                                       self._model.z_roi: [z_roi],
+                                                       self._model.initial_state: self.next_state})
 
         # estimate position and size
-        self.target_pos, self.target_size, best_scale_idx = self.estimate_bbox(responses, sx_roi_size, self.target_pos, self.target_size)
+        self.target_pos, self.target_size, best_scale_idx = self.estimate_bbox(responses, sx_roi_size, self.target_pos,
+                                                                               self.target_size)
         bbox = np.hstack([self.target_pos - self.target_size / 2, self.target_size])
 
         self.next_state = get_new_state(self.next_state, best_scale_idx)
@@ -209,7 +220,8 @@ class Tracker():
         self.pre_frame_file = cur_frame_file
 
         if display:
-            return bbox, cur_frame, x_instances[best_scale_idx, 0], att_score[best_scale_idx], responses[best_scale_idx], self.next_state.access_state
+            return bbox, cur_frame, x_instances[best_scale_idx, 0], att_score[best_scale_idx], responses[
+                best_scale_idx], self.next_state.access_state
         else:
             return bbox, cur_frame
 
@@ -225,6 +237,7 @@ def calc_z_size(target_size):
 
     return z_size
 
+
 def calc_x_size(z_roi_size):
     # calculate roi region
     z_scale = config.z_exemplar_size / z_roi_size
@@ -233,24 +246,22 @@ def calc_x_size(z_roi_size):
 
     return x_size
 
-def get_new_state(state, best_scale):
 
+def get_new_state(state, best_scale):
     lstm_state = state[0]
     access_state = state[1]
 
     c_best = lstm_state[0][best_scale]
     h_best = lstm_state[1][best_scale]
-    c = np.array([c_best]*config.num_scale)
-    h = np.array([h_best]*config.num_scale)
+    c = np.array([c_best] * config.num_scale)
+    h = np.array([h_best] * config.num_scale)
 
     lstm_state = tf.nn.rnn_cell.LSTMStateTuple(c, h)
 
     s_list = []
     for s in access_state:
         s_best = s[best_scale]
-        s_list.append([s_best]*config.num_scale)
+        s_list.append([s_best] * config.num_scale)
     access_state = AccessState(np.array(s_list[0]), np.array(s_list[1]), np.array(s_list[2]),
                                np.array(s_list[3]), np.array(s_list[4]), np.array(s_list[5]), np.array(s_list[6]))
     return MemNetState(lstm_state, access_state)
-
-

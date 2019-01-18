@@ -5,6 +5,8 @@ sequence_path = os.path.join(data_dir, "sequence.mp4")
 img_path = os.path.join(data_dir, "img")
 save_box = True
 
+checking_treshold = 20
+
 ##########################____MEMTRACK____#############################
 
 #================= data preprocessing ==========================
