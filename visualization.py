@@ -10,7 +10,7 @@ def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     return
 
 
-def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False):
+def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False, color=(0, 255, 0)):
     height = img.shape[0]
     width = img.shape[1]
     selected_bbox = []
@@ -31,7 +31,7 @@ def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False):
 
         bbox = [xmin, ymin, xmax, ymax]
         bboxes_px.append(bbox)
-        draw_bbox(img, bbox)
+        draw_bbox(img, bbox, color=color)
 
     def mouse_position(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
