@@ -25,5 +25,3 @@ def build_models(x, bias, dropout):
     x = tf.layers.flatten(x)
     x = tf.layers.dense(x, 4096)
 
-
-

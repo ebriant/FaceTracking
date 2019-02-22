@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
+import face_alignment
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
@@ -38,6 +39,8 @@ saver = tf.train.Saver()
 saver.restore(isess, ckpt_filename)
 
 
+fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, device='cuda:0', flip_input=True)
+
 # Main image processing routine.
 def load_seq_video():
     cap = cv2.VideoCapture(config.sequence_path)
@@ -50,7 +53,7 @@ def load_seq_video():
 
     # Read until video is completed
     frm_count = 0
-    while cap.isOpened() and frm_count < 3000:
+    while cap.isOpened() and frm_count < 5:
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret:
@@ -77,9 +80,10 @@ def load_seq_video():
 def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
     bbox = []
     bbox_corner_dims = []
-    last_frame= min(first_frame+config.checking_treshold,len(s_frames))
+    last_frame= min(first_frame+config.checking_treshold, len(s_frames)-1)
     config_proto = tf.ConfigProto()
     config_proto.gpu_options.allow_growth = True
+
     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
         if keep_tracker is None:
             model = Model(sess)
@@ -88,17 +92,24 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
         else:
             tracker = keep_tracker
 
-        for idx in range(first_frame+1, last_frame):
+        for idx in range(first_frame + 1, last_frame):
+
             tracker.idx = idx
             bbox_corner_dims, cur_frame = tracker.track(s_frames[idx])
             bbox = np.array([bbox_corner_dims[1], bbox_corner_dims[0],
                              bbox_corner_dims[1] + bbox_corner_dims[3],
                              bbox_corner_dims[0] + bbox_corner_dims[2]])
+
             visualization.plt_img(cur_frame, np.array([bbox]))
+
+        # img = mpimg.imread(s_frames[idx])
+        # img2, crop_coord = crop_img(img, bbox_corner_dims)
+        # preds = fa.get_landmarks(img2)[-1]
+        # # visualization.plot_facial_features(cur_frame, preds)
+        # print(preds)
 
         img = mpimg.imread(s_frames[last_frame])
         img = np.array(img)
-        print("..........", bbox)
         check = check_tracking(img, bbox, bbox_corner_dims)
         print("Check result on f%d: %s" %(last_frame, check))
         if isinstance(check, list):
@@ -110,11 +121,11 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
                 run_tracker(init_bbox, s_frames, last_frame, tracker)
 
 
-def crop_img(img, bbox, scale=2):
-    xmin = max(int(bbox[1] - ((scale-1)/2) * bbox[3]), 0)
-    ymin = max(int(bbox[0] - ((scale-1)/2) * bbox[2]), 0)
-    xmax = min(int(bbox[1] + ((scale+1)/2) * bbox[3]), img.shape[1])
-    ymax = min(int(bbox[0] + ((scale+1)/2) * bbox[2]), img.shape[0])
+def crop_img(img, bbox, scale=config.checking_scale):
+    xmin = max(int(bbox[1] - max(((scale-1)/2) * bbox[3], config.checking_min_size)), 0)
+    ymin = max(int(bbox[0] - max(((scale-1)/2) * bbox[2], config.checking_min_size)), 0)
+    xmax = min(int(bbox[1] + max(((scale+1)/2) * bbox[3], config.checking_min_size)), img.shape[1])
+    ymax = min(int(bbox[0] + max(((scale+1)/2) * bbox[2], config.checking_min_size)), img.shape[0])
     return img[xmin:xmax, ymin:ymax], [xmin, xmax, ymin, ymax]
 
 
@@ -133,14 +144,13 @@ def check_tracking(img, bbox, bbox_corner_dims):
     rclasses, rscores, rbboxes = process_image(img2)
     if len(rbboxes)>0:
         bbox2 = bbox_img_coord(rbboxes[0], crop_coord)
-        visualization.plt_img(img, np.array([bbox,bbox2]))
+        ## visualization.plt_img(img, np.array([bbox,bbox2]))
         if bb_intersection_over_union(bbox, bbox2) < 0.5:
             return bbox2
     return False
 
 
 def bb_intersection_over_union(boxA, boxB):
-    print("----",boxA, boxB)
     # determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
@@ -162,6 +172,7 @@ def bb_intersection_over_union(boxA, boxB):
 
     # return the intersection over union value
     return iou
+
 
 def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     # Run SSD network.
@@ -198,7 +209,6 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     rbboxes = np_methods.bboxes_resize(rbbox_img, rbboxes)
 
     return rclasses, rscores, rbboxes
-
 
 
 def reformat_bboxes_corner_dimensions(bboxes_list):

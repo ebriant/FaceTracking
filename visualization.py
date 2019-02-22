@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import os
+import config
+
 
 def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     p1 = (int(bbox[0]), int(bbox[1]))
@@ -9,14 +12,23 @@ def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     cv2.putText(img, str(label), p1[::-1], cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
     return
 
+def plot_facial_features(img, features_list):
+    for i in range (0,68):
+        cv2.circle(img, (features_list[i,0],features_list[i,1]), 2, color=(0,0,255))
 
 def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False, color=(0, 255, 0)):
+
     height = img.shape[0]
     width = img.shape[1]
     selected_bbox = []
     bboxes_px = []
     b, g, r = cv2.split(img)  # get b,g,r
     img = cv2.merge([r, g, b])  # switch it to rgb
+
+    if np.amax(img)<=1:
+        img = img*255
+    img = np.array(img, dtype=np.uint8)
+
     for i in range(bboxes.shape[0]):
         if np.amax(bboxes[i]) <= 1:
             xmin = int(bboxes[i, 0] * height)
@@ -45,6 +57,18 @@ def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False, c
         if box[0] <= y <= box[2] and box[1] <= x <= box[3]:
             return True
         return False
+
+    # Save img in the output folder
+    img_names = sorted(os.listdir(config.out_folder))
+    if len(img_names) == 0:
+        name = 0
+    else:
+        name = int(img_names[-1][:5])+1
+    img_write_path = os.path.join(config.out_folder, "%05d.png" % name)
+    cv2.imwrite(img_write_path, img)
+
+
+
 
     cv2.namedWindow(title)
     if callback:
