@@ -4,15 +4,21 @@ import config
 import tensorflow as tf
 import time
 import numpy as np
+import utils
+
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
-import face_alignment
+# import faceAlignment.face_alignment as f_a
+from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
 from MemTrack.tracking.tracker import Tracker, Model
+
+
+fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
 
 # TensorFlow session: grow memory when needed.
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -38,8 +44,8 @@ isess.run(tf.global_variables_initializer())
 saver = tf.train.Saver()
 saver.restore(isess, ckpt_filename)
 
-
-fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, device='cuda:0', flip_input=True)
+config_proto = tf.ConfigProto()
+config_proto.gpu_options.allow_growth = True
 
 # Main image processing routine.
 def load_seq_video():
@@ -81,8 +87,6 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
     bbox = []
     bbox_corner_dims = []
     last_frame= min(first_frame+config.checking_treshold, len(s_frames)-1)
-    config_proto = tf.ConfigProto()
-    config_proto.gpu_options.allow_growth = True
 
     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
         if keep_tracker is None:
@@ -93,40 +97,27 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
             tracker = keep_tracker
 
         for idx in range(first_frame + 1, last_frame):
-
             tracker.idx = idx
             bbox_corner_dims, cur_frame = tracker.track(s_frames[idx])
             bbox = np.array([bbox_corner_dims[1], bbox_corner_dims[0],
                              bbox_corner_dims[1] + bbox_corner_dims[3],
                              bbox_corner_dims[0] + bbox_corner_dims[2]])
-
+            print(bbox)
             visualization.plt_img(cur_frame, np.array([bbox]))
 
-        # img = mpimg.imread(s_frames[idx])
-        # img2, crop_coord = crop_img(img, bbox_corner_dims)
-        # preds = fa.get_landmarks(img2)[-1]
-        # # visualization.plot_facial_features(cur_frame, preds)
-        # print(preds)
 
         img = mpimg.imread(s_frames[last_frame])
         img = np.array(img)
         check = check_tracking(img, bbox, bbox_corner_dims)
         print("Check result on f%d: %s" %(last_frame, check))
+
         if isinstance(check, list):
             check = [check[1], check[0], check[3] - check[1], check[2] - check[0]]
-            sess.close()
             run_tracker(check, s_frames, last_frame)
         else:
             if last_frame<len(s_frames):
                 run_tracker(init_bbox, s_frames, last_frame, tracker)
 
-
-def crop_img(img, bbox, scale=config.checking_scale):
-    xmin = max(int(bbox[1] - max(((scale-1)/2) * bbox[3], config.checking_min_size)), 0)
-    ymin = max(int(bbox[0] - max(((scale-1)/2) * bbox[2], config.checking_min_size)), 0)
-    xmax = min(int(bbox[1] + max(((scale+1)/2) * bbox[3], config.checking_min_size)), img.shape[1])
-    ymax = min(int(bbox[0] + max(((scale+1)/2) * bbox[2], config.checking_min_size)), img.shape[0])
-    return img[xmin:xmax, ymin:ymax], [xmin, xmax, ymin, ymax]
 
 
 def bbox_img_coord(bbox, crop_coord):
@@ -140,38 +131,25 @@ def bbox_img_coord(bbox, crop_coord):
 
 
 def check_tracking(img, bbox, bbox_corner_dims):
-    img2, crop_coord = crop_img(img, bbox_corner_dims)
-    rclasses, rscores, rbboxes = process_image(img2)
+    img_cropped, crop_coord = utils.crop_roi(img, bbox_corner_dims)
+
+    with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+        rclasses, rscores, rbboxes = process_image(img_cropped)
+
     if len(rbboxes)>0:
         bbox2 = bbox_img_coord(rbboxes[0], crop_coord)
         ## visualization.plt_img(img, np.array([bbox,bbox2]))
-        if bb_intersection_over_union(bbox, bbox2) < 0.5:
+        img_cropped2 = utils.crop_roi(img, bbox2)
+        print("1111111", bbox2)
+        face, _ = utils.rotate_face(img_cropped, bbox2, img.shape[0])
+        preds = fa.get_landmarks(img_cropped)[-1]
+        print(preds)
+        visualization.plot_facial_features(img_cropped, preds)
+
+        if utils.bb_intersection_over_union(bbox, bbox2) < 0.5:
             return bbox2
     return False
 
-
-def bb_intersection_over_union(boxA, boxB):
-    # determine the (x, y)-coordinates of the intersection rectangle
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-
-    # compute the area of intersection rectangle
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-
-    # compute the area of both the prediction and ground-truth
-    # rectangles
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-
-    # return the intersection over union value
-    return iou
 
 
 def process_image(img, select_threshold=0.35, nms_threshold=0.1):

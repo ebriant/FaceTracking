@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import config
-
+import random
 
 def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     p1 = (int(bbox[0]), int(bbox[1]))
@@ -12,9 +12,16 @@ def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
     cv2.putText(img, str(label), p1[::-1], cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
     return
 
+
 def plot_facial_features(img, features_list):
+    b, g, r = cv2.split(img)  # get b,g,r
+    img = cv2.merge([r, g, b])  # switch it to rgb
     for i in range (0,68):
         cv2.circle(img, (features_list[i,0],features_list[i,1]), 2, color=(0,0,255))
+    cv2.imshow("%.2f" %(random.random()), img)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
+
 
 def plt_img(img, bboxes, classes=[], scores=[], title="image", callback=False, color=(0, 255, 0)):
 

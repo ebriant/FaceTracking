@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 import json
-
+import os
 
 class FaceAligner:
-    def __init__(self, desired_left_eye=(0.4, 0.4), desired_face_width=256, desired_face_height=None):
+    def __init__(self, desired_left_eye=(0.35, 0.35), desired_face_width=256, desired_face_height=None):
         self.desired_left_eye = desired_left_eye
         self.desired_face_width = desired_face_width
         self.desired_face_height = desired_face_height
@@ -14,6 +14,14 @@ class FaceAligner:
 
     def align(self, image, left_eye_center, right_eye_center):
 
+        # for i in left_eye_center:
+        #     cv2.circle(image, (int(i[0]), int(i[1])), 2, color=(0, 0, 255))
+
+        print(left_eye_center)
+        left_eye_center = np.mean(left_eye_center, axis=0)
+        print(left_eye_center)
+
+        right_eye_center = np.mean(right_eye_center, axis=0)
 
         # compute the angle between the eye centroids
         dY = right_eye_center[1] - left_eye_center[1]
@@ -53,22 +61,20 @@ class FaceAligner:
                                 flags=cv2.INTER_CUBIC)
 
         # return the aligned face
-        print(type(output))
-        print(output)
         return output
 
-img_name = "a_001.jpg"
 
-with open("data/preds.json") as f:
-    data = json.load(f)
+if __name__ == "__main__":
+    with open("data/preds.json") as f:
+        data = json.load(f)
 
-preds=data[img_name]
+    print(data)
+    fa = FaceAligner()
+    for img_name, ff in data.items():
+        image = cv2.imread(os.path.join("data/", img_name))
+        img = fa.align(image, ff[43:48], ff[36:42])
+        cv2.imwrite(os.path.join("data/fa_out",img_name), img)
 
-fa = FaceAligner()
-img = fa.align(cv2.imread("data/a_001.jpg"), preds[42], preds[39])
-print("aaaaaaa")
-cv2.imshow("iii", img)
-cv2.waitKey()
-cv2.destroyAllWindows()
+
 
 

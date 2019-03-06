@@ -5,10 +5,16 @@ sequence_path = os.path.join(data_dir, "sequence.mp4")
 img_path = os.path.join(data_dir, "img")
 save_box = True
 
-checking_treshold = 100
+checking_treshold = 2
 checking_scale = 1.8
 checking_min_size = 80
 out_folder =os.path.join(data_dir, "output_memtrack")
+
+##########################___DATASETS___#########################
+
+wider = "C:/Users/Horio/Documents/Datasets/face_detection/WIDER"
+
+
 
 ##########################____MEMTRACK____#############################
 
