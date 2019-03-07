@@ -17,7 +17,6 @@ from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
 from MemTrack.tracking.tracker import Tracker, Model
 
-
 fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
 
 # TensorFlow session: grow memory when needed.
@@ -46,6 +45,7 @@ saver.restore(isess, ckpt_filename)
 
 config_proto = tf.ConfigProto()
 config_proto.gpu_options.allow_growth = True
+
 
 # Main image processing routine.
 def load_seq_video():
@@ -85,8 +85,7 @@ def load_seq_video():
 
 def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
     bbox = []
-    bbox_corner_dims = []
-    last_frame= min(first_frame+config.checking_treshold, len(s_frames)-1)
+    last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
 
     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
         if keep_tracker is None:
@@ -98,63 +97,36 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
 
         for idx in range(first_frame + 1, last_frame):
             tracker.idx = idx
-            bbox_corner_dims, cur_frame = tracker.track(s_frames[idx])
-            bbox = np.array([bbox_corner_dims[1], bbox_corner_dims[0],
-                             bbox_corner_dims[1] + bbox_corner_dims[3],
-                             bbox_corner_dims[0] + bbox_corner_dims[2]])
-            print(bbox)
-            visualization.plt_img(cur_frame, np.array([bbox]))
-
+            bbox, cur_frame = tracker.track(s_frames[idx])
+            visualization.plt_img(cur_frame, [bbox])
 
         img = mpimg.imread(s_frames[last_frame])
         img = np.array(img)
-        check = check_tracking(img, bbox, bbox_corner_dims)
-        print("Check result on f%d: %s" %(last_frame, check))
+        check, new_bbox = check_tracking(img, bbox)
+        print("[INFO] Check result on f%d: %s" % (last_frame, check))
 
-        if isinstance(check, list):
-            check = [check[1], check[0], check[3] - check[1], check[2] - check[0]]
-            run_tracker(check, s_frames, last_frame)
+        if check:
+            run_tracker(new_bbox, s_frames, last_frame)
+            print("[INFO] Bbox corrected from %s to %s" % (bbox, new_bbox))
         else:
-            if last_frame<len(s_frames):
+            if last_frame < len(s_frames):
                 run_tracker(init_bbox, s_frames, last_frame, tracker)
 
 
-
-def bbox_img_coord(bbox, crop_coord):
-    height2 = crop_coord[3] - crop_coord[2]
-    width2 = crop_coord[1] - crop_coord[0]
-    xmin = int((bbox[0] * width2) + crop_coord[0])
-    ymin = int((bbox[1] * height2) + crop_coord[2])
-    xmax = int((bbox[2] * width2) + crop_coord[0])
-    ymax = int((bbox[3] * height2) + crop_coord[2])
-    return [xmin, ymin, xmax, ymax]
-
-
-def check_tracking(img, bbox, bbox_corner_dims):
-    img_cropped, crop_coord = utils.crop_roi(img, bbox_corner_dims)
-
-    with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-        rclasses, rscores, rbboxes = process_image(img_cropped)
-
+def check_tracking(img, bbox):
+    img_cropped, crop_coord = utils.crop_roi(img, bbox)
+    rclasses, rscores, rbboxes = process_image(img_cropped)
     if len(rbboxes) > 0:
-        bbox_fd = bbox_img_coord(rbboxes[0], crop_coord)
-        visualization.plt_img(img, np.array([bbox, bbox_fd]))
-        bbox_fd = reformat_bboxes_corner_dimensions([bbox_fd])[0]
-
-
-        print(bbox_fd)
-        img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.2)
-        print(img_cropped_fd.shape)
+        bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
+        bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
+        # visualization.plt_img(img, [bbox, bbox_fd])
+        img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
         face_rot, angle = utils.rotate_face(img_cropped_fd, bbox_fd, img.shape[0])
         preds = fa.get_landmarks(face_rot)[-1]
-
-        # print(preds)
         visualization.plot_facial_features(face_rot, preds)
-
         if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
-            return bbox_fd
-    return False
-
+            return True, bbox_fd
+    return False, None
 
 
 def process_image(img, select_threshold=0.35, nms_threshold=0.1):
@@ -194,22 +166,26 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     return rclasses, rscores, rbboxes
 
 
-def reformat_bboxes_corner_dimensions(bboxes_list):
-    result =[]
-    for bbox in bboxes_list:
-        result.append([bbox[1], bbox[0], bbox[3]-bbox[1], bbox[2]-bbox[0]])
-    return result
-
 
 if __name__ == '__main__':
+    # Load the video sequence
     s_frames = load_seq_video()
 
+    # s_frames = ["data/bbox_test/00000.png","data/bbox_test/00001.png"]
+    # img = cv2.imread(s_frames[0])
+    # b, g, r = cv2.split(img)  # get b,g,r
+    # img = cv2.merge([r, g, b])  # switch it to rgb
+
+    # Detect faces in the first image
     img = mpimg.imread(s_frames[0])
     img = np.array(img)
     rclasses, rscores, rbboxes = process_image(img)
-    bboxes_list = visualization.plt_img(img, rbboxes, rclasses, rscores, callback=True)
-    bboxes_list = reformat_bboxes_corner_dimensions(bboxes_list)
+    bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+    print(bboxes_list)
 
+    # Let the user choose which face to follow
+    bbox = visualization.plt_img(img, bboxes_list, rclasses, rscores, callback=True)
     # bboxes_list = [[145, 200, 60, 60]]
 
-    run_tracker(bboxes_list[0], s_frames)
+    # Run the tracking process
+    run_tracker(bbox, s_frames)
