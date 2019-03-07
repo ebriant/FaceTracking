@@ -136,18 +136,23 @@ def check_tracking(img, bbox, bbox_corner_dims):
     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
         rclasses, rscores, rbboxes = process_image(img_cropped)
 
-    if len(rbboxes)>0:
-        bbox2 = bbox_img_coord(rbboxes[0], crop_coord)
-        ## visualization.plt_img(img, np.array([bbox,bbox2]))
-        img_cropped2 = utils.crop_roi(img, bbox2)
-        print("1111111", bbox2)
-        face, _ = utils.rotate_face(img_cropped, bbox2, img.shape[0])
-        preds = fa.get_landmarks(img_cropped)[-1]
-        print(preds)
-        visualization.plot_facial_features(img_cropped, preds)
+    if len(rbboxes) > 0:
+        bbox_fd = bbox_img_coord(rbboxes[0], crop_coord)
+        visualization.plt_img(img, np.array([bbox, bbox_fd]))
+        bbox_fd = reformat_bboxes_corner_dimensions([bbox_fd])[0]
 
-        if utils.bb_intersection_over_union(bbox, bbox2) < 0.5:
-            return bbox2
+
+        print(bbox_fd)
+        img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.2)
+        print(img_cropped_fd.shape)
+        face_rot, angle = utils.rotate_face(img_cropped_fd, bbox_fd, img.shape[0])
+        preds = fa.get_landmarks(face_rot)[-1]
+
+        # print(preds)
+        visualization.plot_facial_features(face_rot, preds)
+
+        if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
+            return bbox_fd
     return False
 
 
