@@ -25,6 +25,7 @@ def plot_facial_features(img, features_list):
 
 
 def plt_img(img, bboxes_list, classes=[], scores=[], title="image", callback=False, color=(0, 255, 0)):
+
     b, g, r = cv2.split(img)  # get b,g,r
     img = cv2.merge([r, g, b])  # switch it to rgb
     selected_bbox = []
@@ -52,13 +53,13 @@ def plt_img(img, bboxes_list, classes=[], scores=[], title="image", callback=Fal
         return False
 
     # Save img in the output folder
-    img_names = sorted(os.listdir(config.out_folder))
-    if len(img_names) == 0:
-        name = 0
-    else:
-        name = int(img_names[-1][:5]) + 1
-    img_write_path = os.path.join(config.out_folder, "%05d.png" % name)
-    cv2.imwrite(img_write_path, img)
+    # img_names = sorted(os.listdir(config.out_folder))
+    # if len(img_names) == 0:
+    #     name = 0
+    # else:
+    #     name = int(img_names[-1][:5]) + 1
+    # img_write_path = os.path.join(config.out_folder, "%05d.png" % name)
+    # cv2.imwrite(img_write_path, img)
 
     # Shows image and wait for user action if callback
     cv2.namedWindow(title)
@@ -73,4 +74,4 @@ def plt_img(img, bboxes_list, classes=[], scores=[], title="image", callback=Fal
             cv2.imshow(title, img)
             if cv2.waitKey(1):
                 break
-    return
+    return img

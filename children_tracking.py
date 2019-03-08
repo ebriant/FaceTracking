@@ -2,14 +2,12 @@ import os
 import cv2
 import config
 import tensorflow as tf
-import time
 import numpy as np
 import utils
 
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
-# import faceAlignment.face_alignment as f_a
 from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
@@ -86,7 +84,6 @@ def load_seq_video():
 def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
     bbox = []
     last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
-
     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
         if keep_tracker is None:
             model = Model(sess)
@@ -115,11 +112,18 @@ def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
 
 def check_tracking(img, bbox):
     img_cropped, crop_coord = utils.crop_roi(img, bbox)
-    rclasses, rscores, rbboxes = process_image(img_cropped)
+    img_rot, angle = utils.rotate_face(img_cropped, bbox, img.shape[0])
+    rclasses, rscores, rbboxes = process_image(img_rot)
+
     if len(rbboxes) > 0:
         bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
+        # visualization.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd")
+        bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, angle)
         bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
-        # visualization.plt_img(img, [bbox, bbox_fd])
+        img2 = visualization.plt_img(img, [bbox])
+        b, g, r = cv2.split(img2)  # get b,g,r
+        img2 = cv2.merge([r, g, b])
+        visualization.plt_img(img2, [bbox_fd], color=(0,125,255))
         img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
         face_rot, angle = utils.rotate_face(img_cropped_fd, bbox_fd, img.shape[0])
         preds = fa.get_landmarks(face_rot)[-1]
