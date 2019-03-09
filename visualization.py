@@ -1,77 +1,82 @@
 import cv2
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from PIL import Image
 import numpy as np
 import os
 import config
 import random
 
+BBOX_COLOR = (0,1,0)
+SELECTED_COLOR = (0.8, 0, 0)
+fig, ax = plt.subplots(1)
 
-def draw_bbox(img, bbox, label="", color=(0, 255, 0), thickness=2):
-    p1 = (int(bbox[0]), int(bbox[1]))
-    p2 = (int(bbox[0]+bbox[2]), int(bbox[1]+bbox[3]))
-    cv2.rectangle(img, p1, p2, color, thickness)
-    p1 = (p1[0], p1[1] - 10)
-    cv2.putText(img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
-    return
+class Visualizer():
+    def __init__(self):
+        self.fig, self.ax = plt.subplot()
+        self.rectangles_list = []
+
+
+    def draw_bbox(self, ax, bbox, label="", color=(0, 255, 0), thickness=2):
+        rect = patches.Rectangle((bbox[0], bbox[1] + bbox[3]), bbox[2], bbox[3], linewidth=1, edgecolor=color)
+        self.ax.add_patch(rect)
+
+        return
 
 
 def plot_facial_features(img, features_list):
     b, g, r = cv2.split(img)  # get b,g,r
     img = cv2.merge([r, g, b])  # switch it to rgb
     for i in range(0, 68):
-        cv2.circle(img, (features_list[i, 0], features_list[i, 1]), 2, color=(0, 0, 255))
+        cv2.circle(img, (features_list[i, 0], features_list[i, 1]), 2, color=BBOX_COLOR)
     cv2.imshow("%.2f" % (random.random()), img)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
 
-def plt_img(img, bboxes_list, classes=[], scores=[], title="image", callback=False, color=(0, 255, 0)):
+def plt_img(img, bboxes_list, title="image", callback=False, color=(0, 1, 0)):
 
-    b, g, r = cv2.split(img)  # get b,g,r
-    img = cv2.merge([r, g, b])  # switch it to rgb
+    ax.clear()
     selected_bbox = []
-    if np.amax(img) <= 1:
-        img = img * 255
-    img = np.array(img, dtype=np.uint8)
-
+    height = img.shape[1]
+    print(fig,ax)
+    # Display the image
+    ax.imshow(img)
     for bbox in bboxes_list:
-        draw_bbox(img, bbox, color=color)
-        # bbox = [xmin, ymin, xmax, ymax]
-        # bboxes_list_px.append(bbox)
-        # draw_bbox(img, bbox, color=color)
-
-    def mouse_position(event, x, y, flags, param):
-        if event == cv2.EVENT_LBUTTONDOWN:
-            for bbox in bboxes_list:
-                if is_in_bbox(bbox, x, y):
-                    draw_bbox(img, bbox, "selected", (0, 0, 200))
-                    cv2.imshow(title, img)
-                    selected_bbox.append(bbox)
+        rect = patches.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3],
+                                 linewidth=1, edgecolor=color, facecolor='none')
+        ax.add_patch(rect)
 
     def is_in_bbox(box, x, y):
         if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
             return True
         return False
 
-    # Save img in the output folder
-    # img_names = sorted(os.listdir(config.out_folder))
-    # if len(img_names) == 0:
-    #     name = 0
-    # else:
-    #     name = int(img_names[-1][:5]) + 1
-    # img_write_path = os.path.join(config.out_folder, "%05d.png" % name)
-    # cv2.imwrite(img_write_path, img)
+    def onclick(event):
+        global ix, iy
+        ix, iy = event.xdata, event.ydata
+        print('x = %d, y = %d' % (ix, iy))
 
-    # Shows image and wait for user action if callback
-    cv2.namedWindow(title)
+        for bbox in bboxes_list:
+            if is_in_bbox(bbox, ix, iy):
+                rect = patches.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3],
+                                         linewidth=1, edgecolor=SELECTED_COLOR, facecolor='none')
+                ax.add_patch(rect)
+                plt.draw()
+                selected_bbox.append(bbox)
+        return
+
+    def press(event):
+        if event.key == 'x' or event.key == ' ':
+            plt.close()
+            return
+
     if callback:
-        cv2.setMouseCallback(title, mouse_position)
-        cv2.imshow(title, img)
-        cv2.waitKey()
-        cv2.destroyAllWindows()
-        return selected_bbox[0]
-    else:
-        while True:
-            cv2.imshow(title, img)
-            if cv2.waitKey(1):
-                break
-    return img
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+        cid2 = fig.canvas.mpl_connect('key_press_event', press)
+
+    plt.tight_layout()
+    plt.show()
+
+    return img, selected_bbox

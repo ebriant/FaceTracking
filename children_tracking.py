@@ -123,7 +123,7 @@ def check_tracking(img, bbox):
         img2 = visualization.plt_img(img, [bbox])
         b, g, r = cv2.split(img2)  # get b,g,r
         img2 = cv2.merge([r, g, b])
-        visualization.plt_img(img2, [bbox_fd], color=(0,125,255))
+        visualization.plt_img(img2, [bbox_fd], color=(0, 125, 255))
         img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
         face_rot, angle = utils.rotate_face(img_cropped_fd, bbox_fd, img.shape[0])
         preds = fa.get_landmarks(face_rot)[-1]
@@ -170,7 +170,6 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     return rclasses, rscores, rbboxes
 
 
-
 if __name__ == '__main__':
     # Load the video sequence
     s_frames = load_seq_video()
@@ -183,13 +182,15 @@ if __name__ == '__main__':
     # Detect faces in the first image
     img = mpimg.imread(s_frames[0])
     img = np.array(img)
+
     rclasses, rscores, rbboxes = process_image(img)
     bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
     print(bboxes_list)
 
     # Let the user choose which face to follow
-    bbox = visualization.plt_img(img, bboxes_list, rclasses, rscores, callback=True)
+    _, bboxes_list = visualization.plt_img(img, bboxes_list, callback=True)
     # bboxes_list = [[145, 200, 60, 60]]
 
     # Run the tracking process
-    run_tracker(bbox, s_frames)
+    for bbox in bboxes_list:
+        run_tracker(bbox, s_frames)
