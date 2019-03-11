@@ -10,7 +10,7 @@ checking_scale = 1.8
 checking_min_size = 80
 out_folder =os.path.join(data_dir, "output_memtrack")
 
-tracking_data = "data/bboxes.txt"
+tracking_data = "data/tracking"
 
 ##########################___DATASETS___#########################
 

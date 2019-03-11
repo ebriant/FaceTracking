@@ -8,6 +8,7 @@ import utils
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
+import data_handler
 from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
@@ -45,6 +46,71 @@ config_proto = tf.ConfigProto()
 config_proto.gpu_options.allow_growth = True
 
 
+class MainTracker():
+    def __init__(self, child_name):
+        self.data_handler = data_handler.DataHandler(child_name)
+        self.visualizer = visualization.VisualizerOpencv()
+
+    def write_bbox(self, bbox):
+        self.data_handler.write_data(bbox)
+
+    def run_tracker(self, init_bbox, s_frames, first_frame=0, keep_tracker=None):
+        bbox = []
+        last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
+        with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+            if keep_tracker is None:
+                model = Model(sess)
+                tracker = Tracker(model)
+                tracker.initialize(s_frames[first_frame], init_bbox)
+            else:
+                tracker = keep_tracker
+
+            for idx in range(first_frame + 1, last_frame):
+                tracker.idx = idx
+                bbox, cur_frame = tracker.track(s_frames[idx])
+                self.write_bbox(bbox)
+                cur_frame = cur_frame * 255
+                self.visualizer.plt_img(cur_frame, [bbox])
+
+            img = mpimg.imread(s_frames[last_frame])
+            img = np.array(img)
+            check, new_bbox = self.check_tracking(img, bbox)
+            print("[INFO] Check result on f%d: %s" % (last_frame, check))
+
+            if check:
+                self.run_tracker(new_bbox, s_frames, last_frame)
+                print("[INFO] Bbox corrected from %s to %s" % (bbox, new_bbox))
+            else:
+                if last_frame < len(s_frames):
+                    self.run_tracker(init_bbox, s_frames, last_frame, tracker)
+
+
+    def check_tracking(self, img, bbox):
+        img_cropped, crop_coord = utils.crop_roi(img, bbox)
+        img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
+        rclasses, rscores, rbboxes = process_image(img_rot)
+
+        if len(rbboxes) > 0:
+            bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
+            # self.visualizer.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd")
+            bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, -angle)
+            bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
+
+            # img2 = self.visualizer.plt_img(img, [bbox])
+            # b, g, r = cv2.split(img2)  # get b,g,r
+            # img2 = cv2.merge([r, g, b])
+            # self.visualizer.plt_img(img2, [bbox_fd], color=(0, 125, 255))
+
+            img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
+            face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox_fd, img.shape[0])
+            preds = fa.get_landmarks(face_rot)[-1]
+            landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(preds, face_rot, -angle), crop_coord_fd)
+            self.visualizer.plt_img(img, [bbox, bbox_fd], landmarks=landmarks, callback=True)
+            if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
+                return True, bbox_fd
+        return False, None
+
+
 # Main image processing routine.
 def load_seq_video():
     cap = cv2.VideoCapture(config.sequence_path)
@@ -79,58 +145,6 @@ def load_seq_video():
     s_frames = [os.path.join(config.img_path, img_name) for img_name in img_names]
 
     return s_frames
-
-
-def run_tracker(init_bbox, s_frames, first_frame=0, keep_tracker=None):
-    bbox = []
-    last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
-    with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-        if keep_tracker is None:
-            model = Model(sess)
-            tracker = Tracker(model)
-            tracker.initialize(s_frames[first_frame], init_bbox)
-        else:
-            tracker = keep_tracker
-
-        for idx in range(first_frame + 1, last_frame):
-            tracker.idx = idx
-            bbox, cur_frame = tracker.track(s_frames[idx])
-            visualization.plt_img(cur_frame, [bbox])
-
-        img = mpimg.imread(s_frames[last_frame])
-        img = np.array(img)
-        check, new_bbox = check_tracking(img, bbox)
-        print("[INFO] Check result on f%d: %s" % (last_frame, check))
-
-        if check:
-            run_tracker(new_bbox, s_frames, last_frame)
-            print("[INFO] Bbox corrected from %s to %s" % (bbox, new_bbox))
-        else:
-            if last_frame < len(s_frames):
-                run_tracker(init_bbox, s_frames, last_frame, tracker)
-
-
-def check_tracking(img, bbox):
-    img_cropped, crop_coord = utils.crop_roi(img, bbox)
-    img_rot, angle = utils.rotate_face(img_cropped, bbox, img.shape[0])
-    rclasses, rscores, rbboxes = process_image(img_rot)
-
-    if len(rbboxes) > 0:
-        bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
-        # visualization.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd")
-        bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, angle)
-        bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
-        img2 = visualization.plt_img(img, [bbox])
-        b, g, r = cv2.split(img2)  # get b,g,r
-        img2 = cv2.merge([r, g, b])
-        visualization.plt_img(img2, [bbox_fd], color=(0, 125, 255))
-        img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
-        face_rot, angle = utils.rotate_face(img_cropped_fd, bbox_fd, img.shape[0])
-        preds = fa.get_landmarks(face_rot)[-1]
-        visualization.plot_facial_features(face_rot, preds)
-        if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
-            return True, bbox_fd
-    return False, None
 
 
 def process_image(img, select_threshold=0.35, nms_threshold=0.1):
@@ -170,7 +184,7 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     return rclasses, rscores, rbboxes
 
 
-if __name__ == '__main__':
+def init():
     # Load the video sequence
     s_frames = load_seq_video()
 
@@ -193,4 +207,10 @@ if __name__ == '__main__':
 
     # Run the tracking process
     for bbox in bboxes_list:
-        run_tracker(bbox, s_frames)
+        tracker = MainTracker("b")
+        tracker.write_bbox(bbox)
+        tracker.run_tracker(bbox, s_frames)
+
+
+if __name__ == '__main__':
+    init()

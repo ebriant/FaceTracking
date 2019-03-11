@@ -62,7 +62,13 @@ def bbox_img_coord(bbox, crop_coord):
     return [bbox[0] + crop_coord[0], bbox[1] + crop_coord[1], bbox[2], bbox[3]]
 
 
-def rotate_face(img, bbox, img_size):
+def landmarks_img_coord(landmarks, crop_coord):
+    for lm in landmarks:
+        lm[0], lm[1] = lm[0] + crop_coord[0], lm[1] + crop_coord[1]
+    return landmarks
+
+
+def rotate_roi(img, bbox, img_size):
     """
     Rotate a bounding box depending on it's position in the image
     Rotation angle is given in degree counter-clockwise
@@ -118,3 +124,16 @@ def rotate_bbox(bbox, img, angle):
         return [height - (bbox[1] + bbox[3]), bbox[0], bbox[3], bbox[2]]
     else:
         raise Exception("angle not conform")
+
+
+def rotate_landmarks(landmarks, img, angle):
+    angle = angle % 360
+    height, width = img.shape[0], img.shape[1]
+    for lm in landmarks :
+        if angle == 90:
+            lm[0], lm[1] = lm[1], width-lm[0]
+        if angle == 180:
+            lm[0], lm[1] = width - lm[0], height - lm[1]
+        if angle == 270:
+            lm[0], lm[1] = height-lm[1], lm[0]
+    return landmarks
