@@ -9,6 +9,7 @@ from PIL import Image
 import matplotlib.image as mpimg
 import visualization
 import data_handler
+import face_alignment
 from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
@@ -50,6 +51,28 @@ class MainTracker():
     def __init__(self, child_name):
         self.data_handler = data_handler.DataHandler(child_name)
         self.visualizer = visualization.VisualizerOpencv()
+        self.face_aligner = face_alignment.FaceAligner()
+
+        # Load the video sequence
+        s_frames = load_seq_video()
+
+        # Detect faces in the first image
+        img = mpimg.imread(s_frames[0])
+        img = np.array(img)
+
+        rclasses, rscores, rbboxes = process_image(img)
+        bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+        print(bboxes_list)
+
+        # Let the user choose which face to follow
+        _, bboxes_list = self.visualizer.plt_img(img, bboxes_list, callback=True)
+        # bboxes_list = [[145, 200, 60, 60]]
+
+        # Run the tracking process
+        for bbox in bboxes_list:
+            # tracker = MainTracker("b")
+            self.write_bbox(bbox)
+            self.run_tracker(bbox, s_frames)
 
     def write_bbox(self, bbox):
         self.data_handler.write_data(bbox)
@@ -84,7 +107,6 @@ class MainTracker():
                 if last_frame < len(s_frames):
                     self.run_tracker(init_bbox, s_frames, last_frame, tracker)
 
-
     def check_tracking(self, img, bbox):
         img_cropped, crop_coord = utils.crop_roi(img, bbox)
         img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
@@ -92,19 +114,20 @@ class MainTracker():
 
         if len(rbboxes) > 0:
             bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
-            # self.visualizer.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd")
+            # self.visualizer.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd", callback=True)
             bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, -angle)
             bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
 
-            # img2 = self.visualizer.plt_img(img, [bbox])
-            # b, g, r = cv2.split(img2)  # get b,g,r
-            # img2 = cv2.merge([r, g, b])
-            # self.visualizer.plt_img(img2, [bbox_fd], color=(0, 125, 255))
+
 
             img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
             face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox_fd, img.shape[0])
             preds = fa.get_landmarks(face_rot)[-1]
+            aligned_face_img = self.face_aligner.align_face(face_rot, preds[43:48], preds[36:42], preds[8])
+
             landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(preds, face_rot, -angle), crop_coord_fd)
+
+            self.visualizer.plt_img(aligned_face_img, [], title="aligned")
             self.visualizer.plt_img(img, [bbox, bbox_fd], landmarks=landmarks, callback=True)
             if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
                 return True, bbox_fd
@@ -201,6 +224,7 @@ def init():
     bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
     print(bboxes_list)
 
+
     # Let the user choose which face to follow
     _, bboxes_list = visualization.plt_img(img, bboxes_list, callback=True)
     # bboxes_list = [[145, 200, 60, 60]]
@@ -213,4 +237,4 @@ def init():
 
 
 if __name__ == '__main__':
-    init()
+    MainTracker("b")
