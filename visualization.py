@@ -84,6 +84,7 @@ class VisualizerOpencv:
     def plt_img(self, img, bboxes_list, *, landmarks=None, title="image", callback=False, color=(0, 255, 0)):
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         selected_bbox = []
+        names_list = []
         self.img = np.array(self.img, dtype=np.uint8)
 
         for bbox in bboxes_list:
@@ -98,6 +99,8 @@ class VisualizerOpencv:
                         self.draw_bbox(bbox, "selected", (0, 0, 200))
                         cv2.imshow(title, self.img)
                         selected_bbox.append(bbox)
+                        name = input("Enter a name for the selected children: ")
+                        names_list.append(name)
 
         def is_in_bbox(box, x, y):
             if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
@@ -127,4 +130,4 @@ class VisualizerOpencv:
                 if cv2.waitKey(1):
                     break
 
-        return self.img, selected_bbox
+        return self.img, selected_bbox, names_list
