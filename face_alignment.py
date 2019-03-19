@@ -11,9 +11,10 @@ class FaceAligner:
         self.target_eye_center = target_eye_center
         self.target_size = target_size
 
-    def align_face(self, img, l_eye, r_eye, chin):
+    def align_face(self, img, l_eye, r_eye, mouth):
         r_eye_center = np.mean(l_eye, axis=0)
         l_eye_center = np.mean(r_eye, axis=0)
+        mouth_center = np.mean(mouth, axis=0)
         dy = r_eye_center[1] - l_eye_center[1]
         dx = r_eye_center[0] - l_eye_center[0]
 
@@ -21,7 +22,7 @@ class FaceAligner:
 
         eyes_center = np.mean([l_eye_center, r_eye_center], axis=0)
 
-        dist = np.linalg.norm((eyes_center - chin)[:2])
+        dist = np.linalg.norm((eyes_center - mouth_center)[:2])
         dist = dist / self.target_size[1]
         scale = self.target_height / dist
         eyes_center = tuple(eyes_center[:2])
@@ -36,16 +37,17 @@ class FaceAligner:
         return output
 
 
-def face_orientation(l_eye, r_eye, chin):
+def face_orientation(l_eye, r_eye, mouth):
     l_eye_center = np.mean(l_eye, axis=0)
     r_eye_center = np.mean(r_eye, axis=0)
+    mouth_center = np.mean(mouth, axis=0)
     dY = r_eye_center[1] - l_eye_center[1]
     dX = r_eye_center[0] - l_eye_center[0]
 
     roll = 90 if dX == 0 else np.degrees(np.arctan(dY / dX))
     p1 = np.array(r_eye_center)
     p2 = np.array(l_eye_center)
-    p3 = np.array(chin)
+    p3 = np.array(mouth_center)
 
     # These two vectors are in the plane
     v1 = p2 - p1

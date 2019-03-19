@@ -17,7 +17,7 @@ from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
 from MemTrack.tracking.tracker import Tracker, Model
 
-fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
+
 
 # TensorFlow session: grow memory when needed.
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -52,15 +52,16 @@ class MainTracker:
         self.data_handler = data_handler.DataHandler(child_name)
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
-
+        self.trackers_list = []
+        self.fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         # Load the video sequence
-        s_frames = load_seq_video()
-
+        self.s_frames = load_seq_video()
+        self.data = {}
         # Detect faces in the first image
-        img = mpimg.imread(s_frames[0])
+        img = mpimg.imread(self.s_frames[0])
         img = np.array(img)
 
-        rclasses, rscores, rbboxes = process_image(img)
+        _, _, rbboxes = process_image(img)
         bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
         print(bboxes_list)
 
@@ -69,69 +70,133 @@ class MainTracker:
         # bboxes_list = [[145, 200, 60, 60]]
 
         # Run the tracking process
-        for bbox in bboxes_list:
-            # tracker = MainTracker("b")
-            self.write_bbox(bbox)
-            self.run_tracker(bbox, s_frames)
+        self.track_all(bboxes_list)
+
+    def track_all(self, init_bbox_list):
+        for init_bbox in init_bbox_list:
+            with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+                model = Model(sess)
+                tracker = Tracker(model)
+                tracker.initialize(self.s_frames[1], init_bbox)
+                self.trackers_list.append(tracker)
+
+        frame_nb = 1
+        while frame_nb < len(self.s_frames):
+            last_frame = min(frame_nb + config.checking_treshold, len(self.s_frames) - 1)
+
+            for tracker in self.trackers_list:
+                bboxes_list, data = self.track(tracker, frame_nb, last_frame)
+
+            frame_nb = last_frame
+        return
+
+    def track(self, tracker, first_frame=1, last_frame=1):
+        """
+        Tracks a single face for the duration of a frame
+        :param tracker:
+        :param first_frame:
+        :param last_frame:
+        :return:
+        """
+        data = []
+        bbox_list = []
+        for idx in range(first_frame, last_frame):
+            tracker.idx = idx
+            bbox, cur_frame = tracker.track(self.s_frames[idx])
+            bbox_list.append(bbox)
+            cur_frame = cur_frame * 255
+            try:
+                img_cropped_fd, crop_coord_fd = utils.crop_roi(cur_frame, bbox, 1.4)
+                face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
+                preds = self.fa.get_landmarks(face_rot)[-1]
+                landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(preds, face_rot, -angle), crop_coord_fd)
+                data.append(landmarks)
+            except Exception as e:
+                print("No Face")
+
+            # visualization
+            self.visualizer.plt_img(cur_frame, [bbox])
+
+        return bbox_list, data
+
+
+    def verify(self, bbox_list):
+
+        for idx1, bbox in bbox_list:
+            for idx2, bbox2 in bbox_list:
+                if idx1 != idx2 and utils.bb_intersection_over_union(bbox, bbox2)>0.5:
+                    self.correct()
+
+        return True, None
+
+
+
+
+    def correct(self):
+        print("Houston, we have a problem")
+        return
+
 
     def write_bbox(self, bbox):
         self.data_handler.write_data(bbox)
 
-    def run_tracker(self, init_bbox, s_frames, first_frame=0, keep_tracker=None):
-        bbox = []
-        last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
-        with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-            if keep_tracker is None:
-                model = Model(sess)
-                tracker = Tracker(model)
-                tracker.initialize(s_frames[first_frame], init_bbox)
-            else:
-                tracker = keep_tracker
-
-            for idx in range(first_frame + 1, last_frame):
-                tracker.idx = idx
-                bbox, cur_frame = tracker.track(s_frames[idx])
-                self.write_bbox(bbox)
-                cur_frame = cur_frame * 255
-                self.visualizer.plt_img(cur_frame, [bbox])
-
-            img = mpimg.imread(s_frames[last_frame])
-            img = np.array(img)
-            check, new_bbox = self.check_tracking(img, bbox)
-            print("[INFO] Check result on f%d: %s" % (last_frame, check))
-
-            if check:
-                self.run_tracker(new_bbox, s_frames, last_frame)
-                print("[INFO] Bbox corrected from %s to %s" % (bbox, new_bbox))
-            else:
-                if last_frame < len(s_frames):
-                    self.run_tracker(init_bbox, s_frames, last_frame, tracker)
-
-    def check_tracking(self, img, bbox):
-        img_cropped, crop_coord = utils.crop_roi(img, bbox)
-        img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
-        rclasses, rscores, rbboxes = process_image(img_rot)
-
-        if len(rbboxes) > 0:
-            bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
-            # self.visualizer.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd", callback=True)
-            bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, -angle)
-            bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
 
 
-
-            img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
-            face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox_fd, img.shape[0])
-            preds = fa.get_landmarks(face_rot)[-1]
-            aligned_face_img = self.face_aligner.align_face(face_rot, preds[43:48], preds[36:42], preds[8])
-
-            landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(preds, face_rot, -angle), crop_coord_fd)
-
-            self.visualizer.plt_img(aligned_face_img, [], title="aligned")
-            self.visualizer.plt_img(img, [bbox, bbox_fd], landmarks=landmarks, callback=True)
-            if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
-                return True, bbox_fd
-        return False, None
+    # def run_tracker(self, init_bbox, s_frames, first_frame=0, keep_tracker=None):
+    #     bbox = []
+    #     last_frame = min(first_frame + config.checking_treshold, len(s_frames) - 1)
+    #     with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+    #         if keep_tracker is None:
+    #             model = Model(sess)
+    #             tracker = Tracker(model)
+    #             tracker.initialize(s_frames[first_frame], init_bbox)
+    #         else:
+    #             tracker = keep_tracker
+    #
+    #         for idx in range(first_frame + 1, last_frame):
+    #             tracker.idx = idx
+    #             bbox, cur_frame = tracker.track(s_frames[idx])
+    #             self.write_bbox(bbox)
+    #             cur_frame = cur_frame * 255
+    #             self.visualizer.plt_img(cur_frame, [bbox])
+    #
+    #         img = mpimg.imread(s_frames[last_frame])
+    #         img = np.array(img)
+    #         check, new_bbox = self.check_tracking(img, bbox)
+    #         print("[INFO] Check result on f%d: %s" % (last_frame, check))
+    #
+    #         if check:
+    #             self.run_tracker(new_bbox, s_frames, last_frame)
+    #             print("[INFO] Bbox corrected from %s to %s" % (bbox, new_bbox))
+    #         else:
+    #             if last_frame < len(s_frames):
+    #                 self.run_tracker(init_bbox, s_frames, last_frame, tracker)
+    #
+    # def check_tracking(self, img, bbox):
+    #     img_cropped, crop_coord = utils.crop_roi(img, bbox)
+    #     img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
+    #     rclasses, rscores, rbboxes = process_image(img_rot)
+    #
+    #     if len(rbboxes) > 0:
+    #         bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
+    #         # self.visualizer.plt_img(img_rot, [bbox_fd], color=(0, 125, 255), title="fd", callback=True)
+    #         bbox_fd = utils.rotate_bbox(bbox_fd, img_rot, -angle)
+    #         bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
+    #
+    #
+    #
+    #         img_cropped_fd, crop_coord_fd = utils.crop_roi(img, bbox_fd, 1.4)
+    #         face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox_fd, img.shape[0])
+    #         preds = fa.get_landmarks(face_rot)[-1]
+    #         aligned_face_img = self.face_aligner.align_face(face_rot, preds[43:48], preds[36:42], preds[8])
+    #
+    #         landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(preds, face_rot, -angle), crop_coord_fd)
+    #
+    #         self.visualizer.plt_img(aligned_face_img, [], title="aligned")
+    #         self.visualizer.plt_img(img, [bbox, bbox_fd], landmarks=landmarks, callback=True)
+    #         if utils.bb_intersection_over_union(bbox, bbox_fd) < 0.5:
+    #             return True, bbox_fd
+    #     return False, None
 
 
 # Main image processing routine.
