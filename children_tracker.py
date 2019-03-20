@@ -17,8 +17,6 @@ from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
 from MemTrack.tracking.tracker import Tracker, Model
 
-
-
 # TensorFlow session: grow memory when needed.
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 gpu_options = tf.GPUOptions(allow_growth=True)
@@ -49,15 +47,14 @@ config_proto.gpu_options.allow_growth = True
 
 class MainTracker:
     def __init__(self):
-        self.data_handler = data_handler.DataHandler("_")
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
-        self.trackers_list = []
+        self.trackers_list = {}
         self.fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         # Load the video sequence
         self.s_frames = load_seq_video()
-        self.landmarks = {}
         self.data = {}
+        self.temp_track = {}
 
     def start_tracking(self):
         # Detect faces in the first image
@@ -69,28 +66,53 @@ class MainTracker:
         # Let the user choose which face to follow
         _, bboxes_list, names_list = self.visualizer.plt_img(img, bboxes_list, callback=True)
         print(bboxes_list, names_list)
+        for idx, name in enumerate(names_list):
+            self.data[name] = {"bbox": bboxes_list[idx]}
+
         # bboxes_list = [[145, 200, 60, 60]]
 
         # Run the tracking process
-        self.track_all(bboxes_list)
+        self.track_all()
 
-    def track_all(self, init_bbox_list):
+    def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
             model = Model(sess)
-            for init_bbox in init_bbox_list:
+            for name, data in self.data.items():
                 tracker = Tracker(model)
-                tracker.initialize(self.s_frames[1], init_bbox)
-                self.trackers_list.append(tracker)
+                tracker.initialize(self.s_frames[1], data["bbox"][0])
+                self.trackers_list[name] = tracker
 
             frame_nb = 1
-            while frame_nb < len(self.s_frames):
+            while frame_nb < len(self.s_frames)-1:
+                self.temp_track = {}
                 last_frame = min(frame_nb + config.checking_treshold, len(self.s_frames) - 1)
 
-                for tracker in self.trackers_list:
+                for name, tracker in self.trackers_list.items():
                     bboxes_list, landmarks = self.track(tracker, frame_nb, last_frame)
+                    self.temp_track[name] = {"bbox": bboxes_list}
 
                 frame_nb = last_frame
-                self.verify()
+
+                # Check the overlay
+                ok, issues = self.check_overlay()
+                if not ok:
+                    self.correct_overlay(issues)
+                # Check if the bbox is a face
+
+                img = mpimg.imread(self.s_frames[last_frame-1])
+                img = np.array(img)
+                for name, data in self.temp_track.items():
+                    ok, new_bbox = self.check_face(img, data["bbox"][-1])
+                    print("[INFO] Check result on f%d: %s" % (last_frame-1, ok))
+
+                    if not ok:
+
+                        print("[INFO] Bbox corrected from %s to %s" % (data["bbox"][-1], new_bbox))
+                    else:
+                        if frame_nb < len(self.s_frames)-1:
+                            continue
+                            # TODO remake tracker
+
             return
 
     def track(self, tracker, first_frame=1, last_frame=1):
@@ -110,6 +132,8 @@ class MainTracker:
                 bbox_list.append(bbox)
                 cur_frame = cur_frame * 255
 
+
+                landmarks = None
                 # img_cropped_fd, crop_coord_fd = utils.crop_roi(cur_frame, bbox, 1.4)
                 # face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
                 # landmarks = self.fa.get_landmarks(face_rot)
@@ -117,26 +141,57 @@ class MainTracker:
                 #     landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(landmarks[-1], face_rot, -angle), crop_coord_fd)
                 # landmarks_list.append(landmarks)
 
-                landmarks = None
-
                 # visualization
                 self.visualizer.plt_img(cur_frame, [bbox], landmarks=landmarks)
 
         return bbox_list, landmarks_list
 
-    def verify(self, bbox_list):
-        for idx1, bbox in bbox_list:
-            for idx2, bbox2 in bbox_list:
-                if idx1 != idx2 and utils.bb_intersection_over_union(bbox, bbox2)>0.5:
-                    self.correct()
-        return True, None
+    def check_overlay(self):
+        issues = []
+        checked = []
+        for name, data in self.temp_track.items():
+            for name2, data2 in self.temp_track.items():
+                if name != name2 and name2 not in checked and \
+                        utils.bb_intersection_over_union(data["bbox"][-1], data2["bbox"][-1]) > 0.5:
+                    issues.append((name, name2))
+                checked.append(name)
 
-    def correct(self):
+        if len(issues) == 0:
+            return True, None
+        else:
+            return False, issues
+
+    def find_ovelay_frame(self, data1, data2):
+        for i in range(len(data2["bbox"])):
+            if utils.bb_intersection_over_union(data1["bbox"][i], data2["bbox"][i]) > 0.5:
+                return i
+
+    def correct_overlay(self, issues):
+        for issue in issues:
+            name1 = issue[0]
+            name2 = issue[1]
+            data1 = self.temp_track[name1]
+            data2 = self.temp_track[name2]
+            overlay_idx = self.find_ovelay_frame(data1, data2)
+            bbox1 =data1["bbox"][overlay_idx]
+            bbox2 = prev_bbox2 = data2["bbox"][overlay_idx]
+            if overlay_idx == 0:
+                prev_bbox1 = self.data[name1]["bbox"][-1]
+                prev_bbox2 = self.data[name2]["bbox"][-1]
+            else:
+                prev_bbox1 = data1["bbox"][overlay_idx-1]
+                prev_bbox2 = data2["bbox"][overlay_idx-1]
+
+            iou1 = utils.bb_intersection_over_union(prev_bbox1, bbox1)
+            iou2 = utils.bb_intersection_over_union(prev_bbox2, bbox2)
+
+            if iou1 > iou2:
+                continue
+
+
+
         print("Houston, we have a problem")
         return
-
-    def write_bbox(self, bbox):
-        self.data_handler.write_data(bbox)
 
     def check_face(self, img, bbox):
         img_cropped, crop_coord = utils.crop_roi(img, bbox)
@@ -146,15 +201,15 @@ class MainTracker:
         if len(rbboxes) > 0:
             corrected_bbox = None
             for bbox_fd in rbboxes:
-                bbox_fd = utils.reformat_bbox_coord(rbboxes[0], img_cropped.shape[0], img_cropped.shape[1])
+                bbox_fd = utils.reformat_bbox_coord(bbox_fd, img_cropped.shape[0], img_cropped.shape[1])
                 if utils.bb_intersection_over_union(bbox, bbox_fd) > 0.5:
                     return False, None
                 else:
                     corrected_bbox = bbox_fd
 
-            return True, corrected_bbox
+            return False, corrected_bbox
 
-        return False, None
+        return True, None
 
 
 # Main image processing routine.
@@ -228,35 +283,6 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
     rbboxes = np_methods.bboxes_resize(rbbox_img, rbboxes)
 
     return rclasses, rscores, rbboxes
-
-
-def init():
-    # Load the video sequence
-    s_frames = load_seq_video()
-
-    # s_frames = ["data/bbox_test/00000.png","data/bbox_test/00001.png"]
-    # img = cv2.imread(s_frames[0])
-    # b, g, r = cv2.split(img)  # get b,g,r
-    # img = cv2.merge([r, g, b])  # switch it to rgb
-
-    # Detect faces in the first image
-    img = mpimg.imread(s_frames[0])
-    img = np.array(img)
-
-    rclasses, rscores, rbboxes = process_image(img)
-    bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
-    print(bboxes_list)
-
-
-    # Let the user choose which face to follow
-    _, bboxes_list = visualization.plt_img(img, bboxes_list, callback=True)
-    # bboxes_list = [[145, 200, 60, 60]]
-
-    # Run the tracking process
-    for bbox in bboxes_list:
-        tracker = MainTracker("b")
-        tracker.write_bbox(bbox)
-        tracker.run_tracker(bbox, s_frames)
 
 
 if __name__ == '__main__':
