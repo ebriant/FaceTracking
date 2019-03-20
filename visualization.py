@@ -89,6 +89,8 @@ class VisualizerOpencv:
 
         for bbox in bboxes_list:
             self.draw_bbox(bbox, color=color)
+            # self.draw_bbox(data[config.BBOX_KEY], label=name, color=color)
+
         if landmarks is not None:
             self.plot_facial_features(landmarks)
 

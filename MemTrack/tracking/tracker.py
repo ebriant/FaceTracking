@@ -225,6 +225,15 @@ class Tracker():
         else:
             return bbox, cur_frame
 
+    def redefine_roi(self, bbox):
+        self.target_size = bbox[2:]
+        self.target_pos = bbox[:2] + self.target_size / 2
+        bbox = np.hstack([ - self.target_size / 2, self.target_size])
+
+        # calculate new x and z roi size for next frame
+        self.z_roi_size = calc_z_size(self.target_size)
+        self.x_roi_size = calc_x_size(self.z_roi_size)
+
 
 def calc_z_size(target_size):
     # calculate roi region

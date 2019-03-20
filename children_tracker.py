@@ -15,7 +15,7 @@ from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
-from MemTrack.tracking.tracker import Tracker, Model
+from MemTrack.tracking.tracker import Tracker, Model, cal
 
 # TensorFlow session: grow memory when needed.
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -67,7 +67,7 @@ class MainTracker:
         _, bboxes_list, names_list = self.visualizer.plt_img(img, bboxes_list, callback=True)
         print(bboxes_list, names_list)
         for idx, name in enumerate(names_list):
-            self.data[name] = {"bbox": bboxes_list[idx]}
+            self.data[name] = {config.BBOX_KEY: [bboxes_list[idx]]}
 
         # bboxes_list = [[145, 200, 60, 60]]
 
@@ -79,41 +79,43 @@ class MainTracker:
             model = Model(sess)
             for name, data in self.data.items():
                 tracker = Tracker(model)
-                tracker.initialize(self.s_frames[1], data["bbox"][0])
+                tracker.initialize(self.s_frames[1], data[config.BBOX_KEY][0])
                 self.trackers_list[name] = tracker
 
-            frame_nb = 1
-            while frame_nb < len(self.s_frames)-1:
+            frame_idx = 1
+            while frame_idx < len(self.s_frames)-1:
                 self.temp_track = {}
-                last_frame = min(frame_nb + config.checking_treshold, len(self.s_frames) - 1)
+                last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames) - 1)
 
-                for name, tracker in self.trackers_list.items():
-                    bboxes_list, landmarks = self.track(tracker, frame_nb, last_frame)
-                    self.temp_track[name] = {"bbox": bboxes_list}
+                for idx in range(frame_idx, last_frame):
+                    for name, tracker in self.trackers_list.items():
 
-                frame_nb = last_frame
+                        tracker.idx = idx
+                        bbox, cur_frame = tracker.track(self.s_frames[idx])
+                        self.temp_track[name] = {config.BBOX_KEY: bbox}
+                        cur_frame = cur_frame * 255
 
-                # Check the overlay
-                ok, issues = self.check_overlay()
-                if not ok:
-                    self.correct_overlay(issues)
-                # Check if the bbox is a face
-
-                img = mpimg.imread(self.s_frames[last_frame-1])
-                img = np.array(img)
-                for name, data in self.temp_track.items():
-                    ok, new_bbox = self.check_face(img, data["bbox"][-1])
-                    print("[INFO] Check result on f%d: %s" % (last_frame-1, ok))
-
+                    # Check the overlay every frame
+                    ok, issues = self.check_overlay()
                     if not ok:
+                        self.correct_overlay(issues)
 
-                        print("[INFO] Bbox corrected from %s to %s" % (data["bbox"][-1], new_bbox))
-                    else:
-                        if frame_nb < len(self.s_frames)-1:
-                            continue
-                            # TODO remake tracker
+                    self.merge_temp()
+
+                # Check if the bbox is a face
+                frame_idx = last_frame
+                self.check_faces(cur_frame)
+
+                # Visualization
+
+
 
             return
+
+    def merge_temp(self, clear_tmp=True):
+        for name, data in self.temp_track.items() :
+            self.data[name][config.BBOX_KEY].append(self.temp_track[name][config.BBOX_KEY])
+        if clear_tmp: self.temp_track = {}
 
     def track(self, tracker, first_frame=1, last_frame=1):
         """
@@ -152,7 +154,7 @@ class MainTracker:
         for name, data in self.temp_track.items():
             for name2, data2 in self.temp_track.items():
                 if name != name2 and name2 not in checked and \
-                        utils.bb_intersection_over_union(data["bbox"][-1], data2["bbox"][-1]) > 0.5:
+                        utils.bb_intersection_over_union(data[config.BBOX_KEY][-1], data2[config.BBOX_KEY][-1]) > 0.5:
                     issues.append((name, name2))
                 checked.append(name)
 
@@ -161,55 +163,68 @@ class MainTracker:
         else:
             return False, issues
 
-    def find_ovelay_frame(self, data1, data2):
-        for i in range(len(data2["bbox"])):
-            if utils.bb_intersection_over_union(data1["bbox"][i], data2["bbox"][i]) > 0.5:
-                return i
-
     def correct_overlay(self, issues):
         for issue in issues:
             name1 = issue[0]
             name2 = issue[1]
             data1 = self.temp_track[name1]
             data2 = self.temp_track[name2]
-            overlay_idx = self.find_ovelay_frame(data1, data2)
-            bbox1 =data1["bbox"][overlay_idx]
-            bbox2 = prev_bbox2 = data2["bbox"][overlay_idx]
-            if overlay_idx == 0:
-                prev_bbox1 = self.data[name1]["bbox"][-1]
-                prev_bbox2 = self.data[name2]["bbox"][-1]
-            else:
-                prev_bbox1 = data1["bbox"][overlay_idx-1]
-                prev_bbox2 = data2["bbox"][overlay_idx-1]
+
+            bbox1 = data1[config.BBOX_KEY]
+            bbox2 = data2[config.BBOX_KEY]
+            prev_bbox1 = self.data[name1][config.BBOX_KEY][-1]
+            prev_bbox2 = self.data[name2][config.BBOX_KEY][-1]
 
             iou1 = utils.bb_intersection_over_union(prev_bbox1, bbox1)
             iou2 = utils.bb_intersection_over_union(prev_bbox2, bbox2)
 
-            if iou1 > iou2:
-                continue
+            if iou1 == iou2 == 0:
+                self.temp_track[name1] = prev_bbox1
+                self.temp_track[name2] = prev_bbox2
+                self.trackers_list[name1].redefine_roi(prev_bbox1)
+                self.trackers_list[name2].redefine_roi(prev_bbox2)
 
-
-
-        print("Houston, we have a problem")
+            elif iou1 > iou2:
+                self.temp_track[name2] = prev_bbox2
+                self.trackers_list[name2].redefine_roi(prev_bbox2)
+            else:
+                self.temp_track[name1] = prev_bbox1
+                self.trackers_list[name1].redefine_roi(prev_bbox1)
         return
 
-    def check_face(self, img, bbox):
-        img_cropped, crop_coord = utils.crop_roi(img, bbox)
-        img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
-        _, _, rbboxes = process_image(img_rot)
+    def check_faces(self, img):
+        for name, data in self.temp_track.items():
+            bbox = data[config.BBOX_KEY]
+            img_cropped, crop_coord = utils.crop_roi(img, bbox)
+            img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
+            _, _, rbboxes = process_image(img_rot)
+            if len(rbboxes) > 0:
+                bbox_fd_list = []
+                for bbox_fd in rbboxes:
+                    bbox_fd = utils.reformat_bbox_coord(bbox_fd, img_cropped.shape[0], img_cropped.shape[1])
+                    bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
+                    bbox_fd_list.append(bbox_fd)
+                ok, new_bbox = self.check_face(bbox, bbox_fd_list, name)
+                if not ok:
+                    self.temp_track[name][config.BBOX_KEY] = new_bbox
+                    self.trackers_list[name].redefine_roi(new_bbox)
 
-        if len(rbboxes) > 0:
-            corrected_bbox = None
-            for bbox_fd in rbboxes:
-                bbox_fd = utils.reformat_bbox_coord(bbox_fd, img_cropped.shape[0], img_cropped.shape[1])
-                if utils.bb_intersection_over_union(bbox, bbox_fd) > 0.5:
-                    return False, None
-                else:
-                    corrected_bbox = bbox_fd
+    def check_face(self, bbox, fd_bbox_list, name):
+        corrected_bbox = []
+        for bbox_fd in fd_bbox_list:
+            if utils.bb_intersection_over_union(bbox, bbox_fd) > 0.5:
+                return True, None
+            elif ((name2 != name and utils.bb_intersection_over_union(self.temp_track[name2][config.BBOX_KEY], bbox_fd) < 0.5) for name2 in self.temp_track):
+                corrected_bbox.append(bbox_fd)
 
-            return False, corrected_bbox
-
-        return True, None
+        if len(corrected_bbox) == 0:
+            return True, None
+        elif len(corrected_bbox) >1:
+            # TODO: Do something if several corrections possible
+            print("[WARNING] Several correction possible")
+            return False, corrected_bbox[0]
+        else:
+            return False, corrected_bbox[0]
 
 
 # Main image processing routine.

@@ -11,6 +11,8 @@ checking_min_size = 80
 out_folder =os.path.join(data_dir, "output_memtrack")
 
 tracking_data = "data/tracking"
+BBOX_KEY = "bbox"
+LANDMARKS_KEY= "landmarks"
 
 ##########################___DATASETS___#########################
 
