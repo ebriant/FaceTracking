@@ -13,6 +13,8 @@ out_folder =os.path.join(data_dir, "output_memtrack")
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
 LANDMARKS_KEY= "landmarks"
+BBOX_COLOR = (0, 1, 0)
+SELECTED_COLOR = (0.8, 0, 0)
 
 ##########################___DATASETS___#########################
 

@@ -15,7 +15,7 @@ from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
-from MemTrack.tracking.tracker import Tracker, Model, cal
+from MemTrack.tracking.tracker import Tracker, Model
 
 # TensorFlow session: grow memory when needed.
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -64,7 +64,7 @@ class MainTracker:
         bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
 
         # Let the user choose which face to follow
-        _, bboxes_list, names_list = self.visualizer.plt_img(img, bboxes_list, callback=True)
+        _, bboxes_list, names_list = self.visualizer.select_bbox(img, bboxes_list)
         print(bboxes_list, names_list)
         for idx, name in enumerate(names_list):
             self.data[name] = {config.BBOX_KEY: [bboxes_list[idx]]}
@@ -83,9 +83,9 @@ class MainTracker:
                 self.trackers_list[name] = tracker
 
             frame_idx = 1
-            while frame_idx < len(self.s_frames)-1:
+            while frame_idx < len(self.s_frames):
                 self.temp_track = {}
-                last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames) - 1)
+                last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames))
 
                 for idx in range(frame_idx, last_frame):
                     for name, tracker in self.trackers_list.items():
@@ -99,23 +99,24 @@ class MainTracker:
                     ok, issues = self.check_overlay()
                     if not ok:
                         self.correct_overlay(issues)
-
-                    self.merge_temp()
+                    if idx != last_frame-1:
+                        self.visualizer.plt_img(cur_frame, self.temp_track)
+                        self.merge_temp()
 
                 # Check if the bbox is a face
                 frame_idx = last_frame
                 self.check_faces(cur_frame)
-
+                self.merge_temp()
+                self.visualizer.plt_img(cur_frame, self.temp_track)
                 # Visualization
 
 
 
             return
 
-    def merge_temp(self, clear_tmp=True):
+    def merge_temp(self):
         for name, data in self.temp_track.items() :
             self.data[name][config.BBOX_KEY].append(self.temp_track[name][config.BBOX_KEY])
-        if clear_tmp: self.temp_track = {}
 
     def track(self, tracker, first_frame=1, last_frame=1):
         """
@@ -154,9 +155,9 @@ class MainTracker:
         for name, data in self.temp_track.items():
             for name2, data2 in self.temp_track.items():
                 if name != name2 and name2 not in checked and \
-                        utils.bb_intersection_over_union(data[config.BBOX_KEY][-1], data2[config.BBOX_KEY][-1]) > 0.5:
+                        utils.bb_intersection_over_union(data[config.BBOX_KEY], data2[config.BBOX_KEY]) > 0.5:
                     issues.append((name, name2))
-                checked.append(name)
+            checked.append(name)
 
         if len(issues) == 0:
             return True, None
