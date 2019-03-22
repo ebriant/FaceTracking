@@ -65,9 +65,19 @@ class VisualizerPlt:
 class VisualizerOpencv:
     def __init__(self):
         self.img = None
-        self.BBOX_COLOR = tuple([int(a * 255) for a in config.BBOX_COLOR])
-        self.SELECTED_COLOR = tuple([int(a * 255) for a in config.SELECTED_COLOR])
+        self.BBOX_COLOR = tuple([int(a * 255) for a in reversed(config.BBOX_COLOR)])
+        self.SELECTED_COLOR = tuple([int(a * 255) for a in reversed(config.SELECTED_COLOR)])
         self.idx = 0
+
+    def prepare_img(self, img, frame_idx):
+        self.idx = frame_idx
+        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.img = np.array(self.img, dtype=np.uint8)
+        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
+
+    def save_img(self):
+        img_write_path = os.path.join(config.out_folder, "%05d.jpg" % self.idx)
+        cv2.imwrite(img_write_path, self.img)
 
     def draw_bbox(self, bbox, label="", color=(0, 255, 0), thickness=2):
         p1 = (int(bbox[0]), int(bbox[1]))
@@ -81,14 +91,9 @@ class VisualizerOpencv:
         for i in range(0, 68):
             cv2.circle(self.img, (int(landmarks_list[i, 0]), int(landmarks_list[i, 1])), 1, color=(0, 0, 255))
 
-    def select_bbox(self, img, bboxes_list, *, title="image"):
-        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    def select_bbox(self, bboxes_list, *, title="image"):
         selected_bbox = []
         names_list = []
-        self.img = np.array(self.img, dtype=np.uint8)
-        frame_name = str("Frame %d" % self.idx)
-        cv2.putText(self.img, frame_name, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
-        self.idx = self.idx + 1
 
         for bbox in bboxes_list:
             self.draw_bbox(bbox, color=self.BBOX_COLOR)
@@ -98,11 +103,12 @@ class VisualizerOpencv:
             if event == cv2.EVENT_LBUTTONDOWN:
                 for bbox in bboxes_list:
                     if is_in_bbox(bbox, x, y):
-                        self.draw_bbox(bbox, label="selected", color=self.SELECTED_COLOR)
-                        cv2.imshow(title, self.img)
-                        selected_bbox.append(bbox)
                         name = input("Enter a name for the selected children: ")
                         names_list.append(name)
+                        self.draw_bbox(bbox, label=name, color=self.SELECTED_COLOR)
+                        cv2.imshow(title, self.img)
+                        selected_bbox.append(bbox)
+
 
         def is_in_bbox(box, x, y):
             if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
@@ -117,27 +123,13 @@ class VisualizerOpencv:
         cv2.destroyAllWindows()
         return self.img, selected_bbox, names_list
 
-    def plt_img(self, img, tracking_data, title="image"):
-        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.img = np.array(self.img, dtype=np.uint8)
-        frame_name = str("Frame %d" % self.idx)
-        cv2.putText(self.img, frame_name, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
-        self.idx = self.idx + 1
-
+    def plt_img(self, tracking_data, title="image"):
         for name, data in tracking_data.items():
-            self.draw_bbox(data[config.BBOX_KEY], label=name, color=self.BBOX_COLOR)
+            bbox = [int(e) for e in data[config.BBOX_KEY]]
+            self.draw_bbox(bbox, label=name, color=self.BBOX_COLOR)
 
             if config.LANDMARKS_KEY in data:
                 self.plot_facial_features(data[config.LANDMARKS_KEY])
-
-        # # Save img in the output folder
-        # img_names = sorted(os.listdir(config.out_folder))
-        # if len(img_names) == 0:
-        #     name = 0
-        # else:
-        #     name = int(img_names[-1][:5]) + 1
-        # img_write_path = os.path.join(config.out_folder, "%05d.png" % name)
-        # cv2.imwrite(img_write_path, img)
 
         # Shows image and wait for user action if callback
         cv2.namedWindow(title, cv2.WINDOW_NORMAL)

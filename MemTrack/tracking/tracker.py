@@ -211,6 +211,8 @@ class Tracker():
         # estimate position and size
         self.target_pos, self.target_size, best_scale_idx = self.estimate_bbox(responses, sx_roi_size, self.target_pos,
                                                                                self.target_size)
+        # print("####",self.target_pos, self.target_size)
+        # print("####", type(self.target_pos), type(self.target_size))
         bbox = np.hstack([self.target_pos - self.target_size / 2, self.target_size])
 
         self.next_state = get_new_state(self.next_state, best_scale_idx)
@@ -226,9 +228,8 @@ class Tracker():
             return bbox, cur_frame
 
     def redefine_roi(self, bbox):
-        self.target_size = bbox[2:]
-        self.target_pos = bbox[:2] + self.target_size / 2
-        bbox = np.hstack([ - self.target_size / 2, self.target_size])
+        self.target_size = np.asarray(bbox[2:])
+        self.target_pos = np.asarray(bbox[:2]) + self.target_size / 2
 
         # calculate new x and z roi size for next frame
         self.z_roi_size = calc_z_size(self.target_size)

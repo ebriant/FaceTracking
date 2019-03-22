@@ -8,7 +8,9 @@ save_box = True
 checking_treshold = 50
 checking_scale = 1.8
 checking_min_size = 80
-out_folder =os.path.join(data_dir, "output_memtrack")
+min_bbox_size = 30
+overlay_threshold = 0.4
+out_folder =os.path.join(data_dir, "output")
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
