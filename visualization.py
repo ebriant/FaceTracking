@@ -75,8 +75,8 @@ class VisualizerOpencv:
         self.img = np.array(self.img, dtype=np.uint8)
         cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
 
-    def save_img(self):
-        img_write_path = os.path.join(config.out_folder, "%05d.jpg" % self.idx)
+    def save_img(self, out_dir):
+        img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
         cv2.imwrite(img_write_path, self.img)
 
     def draw_bbox(self, bbox, label="", color=(0, 255, 0), thickness=2):

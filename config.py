@@ -1,8 +1,9 @@
 import os
 
 data_dir = "data"
-sequence_path = os.path.join(data_dir, "sequence.mp4")
+video_dir = os.path.join(data_dir, "videos")
 img_path = os.path.join(data_dir, "img")
+out_dir = os.path.join(data_dir, "output")
 save_box = True
 
 checking_treshold = 50
@@ -10,7 +11,6 @@ checking_scale = 1.8
 checking_min_size = 80
 min_bbox_size = 30
 overlay_threshold = 0.4
-out_folder =os.path.join(data_dir, "output")
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"

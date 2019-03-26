@@ -4,11 +4,10 @@ import config
 import tensorflow as tf
 import numpy as np
 import utils
-
+import argparse
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
-import data_handler
 import face_alignment
 from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
@@ -46,35 +45,38 @@ config_proto.gpu_options.allow_growth = True
 
 
 class MainTracker:
-    def __init__(self):
+    def __init__(self, video_name):
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
         self.trackers_list = {}
         self.fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         # Load the video sequence
-        self.s_frames = load_seq_video()
+        self.s_frames = load_seq_video(video_name)
+        self.out_dir = os.path.join(config.out_dir, video_name[:-4])
+        if not os.path.exists(self.out_dir):
+            os.mkdir(self.out_dir)
         self.data = {}
         self.temp_track = {}
 
     def start_tracking(self):
-        # Detect faces in the first image
-        img = mpimg.imread(self.s_frames[0])
-        img = np.array(img)
-        _, _, rbboxes = process_image(img)
-        bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+        # # Detect faces in the first image
+        # img = mpimg.imread(self.s_frames[0])
+        # img = np.array(img)
+        # _, _, rbboxes = process_image(img)
+        # bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+        #
+        # # Let the user choose which face to follow
+        # self.visualizer.prepare_img(img, 0)
+        # _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
+        # for idx, name in enumerate(names_list):
+        #     self.data[name] = {config.BBOX_KEY: [bboxes_list[idx]]}
 
-        # Let the user choose which face to follow
-        self.visualizer.prepare_img(img, 0)
-        _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
-        for idx, name in enumerate(names_list):
-            self.data[name] = {config.BBOX_KEY: [bboxes_list[idx]]}
+        self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]}, 'c': {'bbox': [[94,
+                                                                                                               296, 77,
+                                                                                                               98]]},
+                     'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
+                421, 230, 63, 39]]}}
 
-        # self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]}, 'c': {'bbox': [[94,
-        #                                                                                                        296, 77,
-        #                                                                                                        98]]},
-        #              'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
-        #         421, 230, 63, 39]]}}
-        print(self.data)
         # bboxes_list = [[145, 200, 60, 60]]
 
         # Run the tracking process
@@ -107,7 +109,7 @@ class MainTracker:
                         self.correct_overlay(issues)
                     if idx != last_frame - 1:
                         self.visualizer.plt_img(self.temp_track)
-                        self.visualizer.save_img()
+                        self.visualizer.save_img(self.out_dir)
 
                         self.merge_temp()
 
@@ -117,7 +119,7 @@ class MainTracker:
                 self.merge_temp()
                 # Visualization
                 self.visualizer.plt_img(self.temp_track)
-                self.visualizer.save_img()
+                self.visualizer.save_img(self.out_dir)
             return
 
     def merge_temp(self):
@@ -241,10 +243,11 @@ class MainTracker:
 
 
 # Main image processing routine.
-def load_seq_video():
-    cap = cv2.VideoCapture(config.sequence_path)
-    if not os.path.exists(config.img_path):
-        os.mkdir(config.img_path)
+def load_seq_video(video_name):
+    cap = cv2.VideoCapture(os.path.join(config.video_dir,video_name))
+    img_dir_path = os.path.join(config.img_path, video_name[:-4])
+    if not os.path.exists(img_dir_path):
+        os.mkdir(img_dir_path)
 
     # Check if camera opened successfully
     if cap.isOpened() is False:
@@ -252,14 +255,12 @@ def load_seq_video():
 
     # Read until video is completed
     frm_count = 0
-    while cap.isOpened() and frm_count < 5:
+    while cap.isOpened() and frm_count < 5000:
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret:
             # Display the resulting frame
-            if not os.path.exists(config.img_path):
-                os.makedirs(config.img_path)
-            img_write_path = os.path.join(config.img_path, "%05d.jpg" % frm_count)
+            img_write_path = os.path.join(img_dir_path, "%05d.jpg" % frm_count)
             if not os.path.exists(img_write_path):
                 cv2.imwrite(img_write_path, frame)
             frm_count += 1
@@ -270,8 +271,8 @@ def load_seq_video():
     # When everything done, release the video capture object
     cap.release()
 
-    img_names = sorted(os.listdir(config.img_path))
-    s_frames = [os.path.join(config.img_path, img_name) for img_name in img_names]
+    img_names = sorted(os.listdir(img_dir_path))
+    s_frames = [os.path.join(img_dir_path, img_name) for img_name in img_names]
 
     return s_frames
 
@@ -314,5 +315,11 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
 
 
 if __name__ == '__main__':
-    main_tracker = MainTracker()
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-v', '--video', type=str, default="171214_1.MP4",
+                        help='the video to be processed')
+    args = parser.parse_args()
+
+    main_tracker = MainTracker(args.video)
     main_tracker.start_tracking()
+
