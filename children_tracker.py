@@ -57,27 +57,40 @@ class MainTracker:
             os.mkdir(self.out_dir)
         self.data = {}
         self.temp_track = {}
+        self.angular_order = []
 
     def start_tracking(self):
         # # Detect faces in the first image
-        # img = mpimg.imread(self.s_frames[0])
-        # img = np.array(img)
-        # _, _, rbboxes = process_image(img)
+        img = mpimg.imread(self.s_frames[0])
+        img = np.array(img)
+
+        # _, _, rbboxes = detect_faces(img)
         # bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
         #
         # # Let the user choose which face to follow
         # self.visualizer.prepare_img(img, 0)
         # _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
         # for idx, name in enumerate(names_list):
-        #     self.data[name] = {config.BBOX_KEY: [bboxes_list[idx]]}
+        #     self.temp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
+        #     self.data[name] = {config.BBOX_KEY: []}
+        # # print(self.data, self.temp_track)
+        # self.merge_temp()
+        # print(self.temp_track)
 
+        self.temp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
+                           'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
+                           'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
         self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]}, 'c': {'bbox': [[94,
                                                                                                                296, 77,
                                                                                                                98]]},
                      'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
                 421, 230, 63, 39]]}}
 
-        # bboxes_list = [[145, 200, 60, 60]]
+        angles_dict = utils.get_bbox_dict_ang_pos(self.temp_track, img)
+        for name in sorted(angles_dict, key=angles_dict.get):
+            self.angular_order.append(name)
+
+        print(self.angular_order)
 
         # Run the tracking process
         self.track_all()
@@ -124,7 +137,7 @@ class MainTracker:
 
     def merge_temp(self):
         for name, data in self.temp_track.items():
-            self.data[name][config.BBOX_KEY].append(self.temp_track[name][config.BBOX_KEY])
+            self.data[name][config.BBOX_KEY].append(list(self.temp_track[name][config.BBOX_KEY]))
 
     def track(self, tracker, first_frame=1, last_frame=1):
         """
@@ -144,6 +157,7 @@ class MainTracker:
                 cur_frame = cur_frame * 255
 
                 landmarks = None
+
                 # img_cropped_fd, crop_coord_fd = utils.crop_roi(cur_frame, bbox, 1.4)
                 # face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
                 # landmarks = self.fa.get_landmarks(face_rot)
@@ -204,29 +218,92 @@ class MainTracker:
         return
 
     def check_faces(self, img):
-        for name, data in self.temp_track.items():
-            bbox = data[config.BBOX_KEY]
-            img_cropped, crop_coord = utils.crop_roi(img, bbox)
-            img_rot, angle = utils.rotate_roi(img_cropped, bbox, img.shape[0])
-            _, _, rbboxes = process_image(img_rot)
-            if len(rbboxes) > 0:
-                bbox_fd_list = []
-                for bbox_fd in rbboxes:
-                    bbox_fd = utils.reformat_bbox_coord(bbox_fd, img_cropped.shape[0], img_cropped.shape[1])
-                    bbox_fd = utils.bbox_img_coord(bbox_fd, crop_coord)
-                    if bbox_fd[2] > config.min_bbox_size and bbox_fd[3] > config.min_bbox_size:
-                        print(bbox_fd)
-                        bbox_fd_list.append(bbox_fd)
-                ok, new_bbox = self.check_face(bbox, bbox_fd_list, name)
-                if not ok:
-                    self.temp_track[name][config.BBOX_KEY] = new_bbox
-                    self.trackers_list[name].redefine_roi(new_bbox)
+        corrected_bbox = {}
+        _, _, rbboxes = detect_faces(img, select_threshold=0.6)
+        if len(rbboxes) > 0:
+            bbox_fd_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+
+            for bbox_fd in bbox_fd_list:
+                if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
+                    bbox_fd_list.remove(bbox_fd)
+
+            print("[INFO] Face processing 1", bbox_fd_list)
+            for bbox_fd in bbox_fd_list:
+                for name, data in self.temp_track.items():
+                    bbox = data[config.BBOX_KEY]
+                    if utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold \
+                            and self.check_angular_order(name, bbox_fd, img):
+                        self.correct_tracker(name, bbox_fd)
+                        corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
+                        bbox_fd_list.remove(bbox_fd)
+                        break
+
+            print("[INFO] Face processing 2", bbox_fd_list)
+            for bbox_fd in bbox_fd_list:
+                for name, data in self.temp_track.items():
+                    bbox = data[config.BBOX_KEY]
+                    if utils.bbox_in_roi(bbox, bbox_fd, img) and self.check_angular_order(name, bbox_fd, img):
+                        self.correct_tracker(name, bbox_fd)
+                        corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
+                        bbox_fd_list.remove(bbox_fd)
+                        break
+
+            print("[INFO] More face to deal with", bbox_fd_list)
+            if len(bbox_fd_list) > 0:
+                corrected_bbox_angles_tmp = utils.get_bbox_dict_ang_pos(corrected_bbox, img)
+                corrected_bbox_angles = {}
+
+                for name in self.angular_order:
+                    if name in corrected_bbox_angles_tmp.keys():
+                        corrected_bbox_angles[name] = corrected_bbox_angles_tmp[name]
+
+                not_corrected_bbox_angles = {k: utils.get_bbox_angular_pos(v[config.BBOX_KEY], img) for k, v in
+                                             self.temp_track.items() if k not in corrected_bbox}
+                if not_corrected_bbox_angles:
+                    for bbox_fd in bbox_fd_list:
+                        angle = utils.get_bbox_angular_pos(bbox_fd, img=img)
+                        if corrected_bbox_angles:
+                            prev_id, next_id = None, None
+                            for name, value in corrected_bbox_angles.items():
+                                if angle > value:
+                                    prev_id = name
+                                    break
+                            for name, value in corrected_bbox_angles.items():
+                                if angle < value:
+                                    next_id = name
+                                    break
+                            if prev_id is None:
+                                prev_id = list(corrected_bbox_angles.keys())[-1]
+                            if next_id is None:
+                                next_id = list(corrected_bbox_angles.keys())[0]
+                            ang_order = self.angular_order * 2
+                            start = ang_order.index(prev_id)
+                            end = ang_order.index(next_id, start + 1)
+                            potential_id_list = [i for i in ang_order[start + 1:end]]
+                        else:
+                            potential_id_list = self.angular_order
+
+                        if len(potential_id_list) == 1 and self.check_angular_order(potential_id_list[0], bbox_fd, img):
+                            self.correct_tracker(potential_id_list[0], bbox_fd)
+                            print("[INFO] Assigned {} to children {}".format(bbox_fd, potential_id_list[0]))
+                        elif len(potential_id_list) == 0:
+                            break
+                        else:
+                            key, value = min(not_corrected_bbox_angles.items(), key=lambda kv: abs(kv[1] - angle))
+                            if self.check_angular_order(key, bbox_fd, img):
+                                self.correct_tracker(key, bbox_fd)
+                            print(
+                                "[INFO] Assigned {} to children {} by closest angular position".format(bbox_fd, key))
+
+    def correct_tracker(self, name, bbox):
+        self.temp_track[name][config.BBOX_KEY] = bbox
+        self.trackers_list[name].redefine_roi(bbox)
 
     def check_face(self, bbox, fd_bbox_list, name):
         corrected_bbox = []
         for bbox_fd in fd_bbox_list:
             if utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold:
-                return True, None
+                return False, bbox_fd
             elif ((name2 != name and utils.bb_intersection_over_union(self.temp_track[name2][config.BBOX_KEY],
                                                                       bbox_fd) < config.overlay_threshold) for name2 in
                   self.temp_track):
@@ -241,10 +318,27 @@ class MainTracker:
         else:
             return False, corrected_bbox[0]
 
+    def check_angular_order(self, name, bbox, img):
+        angle = utils.get_bbox_angular_pos(bbox, img)
+        l = len(self.angular_order)
+        ang_order = self.angular_order * 2
+        idx = ang_order.index(name)
+        prev = self.angular_order[(idx - 1) % l]
+        next = self.angular_order[(idx + 1) % l]
+        angles_dict = utils.get_bbox_dict_ang_pos(self.temp_track, img)
+        print("Verif", angles_dict[prev], angle, angles_dict[next])
+        start, end = angles_dict[prev], angles_dict[next]
+        end = end - start + 360 if (end - start) < 0 else end - start
+        mid = angle - start + 360 if (angle - start) < 0 else angle - start
+
+        result = 0 < mid < end
+        print("[INFO] Angular order", result)
+        return result
+
 
 # Main image processing routine.
 def load_seq_video(video_name):
-    cap = cv2.VideoCapture(os.path.join(config.video_dir,video_name))
+    cap = cv2.VideoCapture(os.path.join(config.video_dir, video_name))
     img_dir_path = os.path.join(config.img_path, video_name[:-4])
     if not os.path.exists(img_dir_path):
         os.mkdir(img_dir_path)
@@ -277,7 +371,7 @@ def load_seq_video(video_name):
     return s_frames
 
 
-def process_image(img, select_threshold=0.35, nms_threshold=0.1):
+def detect_faces(img, select_threshold=0.35, nms_threshold=0.1):
     # Run SSD network.
     h, w = img.shape[:2]
     if h < w and h < 640:
@@ -322,4 +416,3 @@ if __name__ == '__main__':
 
     main_tracker = MainTracker(args.video)
     main_tracker.start_tracking()
-

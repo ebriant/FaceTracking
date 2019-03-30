@@ -73,7 +73,7 @@ class VisualizerOpencv:
         self.idx = frame_idx
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(self.img, dtype=np.uint8)
-        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
 
     def save_img(self, out_dir):
         img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
