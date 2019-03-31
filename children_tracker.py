@@ -57,7 +57,9 @@ class MainTracker:
             os.mkdir(self.out_dir)
         self.data = {}
         self.temp_track = {}
+        self.last_detection = {}
         self.angular_order = []
+        self.name_list = []
 
     def start_tracking(self):
         # # Detect faces in the first image
@@ -69,14 +71,15 @@ class MainTracker:
         #
         # # Let the user choose which face to follow
         # self.visualizer.prepare_img(img, 0)
-        # _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
-        # for idx, name in enumerate(names_list):
+        # _, bboxes_list, self.names_list = self.visualizer.select_bbox(bboxes_list)
+        # for idx, name in enumerate(self.names_list):
         #     self.temp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
         #     self.data[name] = {config.BBOX_KEY: []}
         # # print(self.data, self.temp_track)
         # self.merge_temp()
         # print(self.temp_track)
 
+        self.name_list = ["a", "b", "c", "d", "e", "f"]
         self.temp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
                            'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
                            'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
@@ -95,6 +98,51 @@ class MainTracker:
         # Run the tracking process
         self.track_all()
 
+    def init_trackers(self):
+        with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
+            model = Model(sess)
+            for name, data in self.data.items():
+                tracker = Tracker(model)
+                tracker.initialize(self.s_frames[1], data[config.BBOX_KEY][0])
+                self.trackers_list[name] = tracker
+
+    def process_frame(self, img):
+        frame_data = {}
+        for name in self.name_list:
+            frame_data[name] = {}
+        _, _, rbboxes = detect_faces(img, select_threshold=0.6)
+        if len(rbboxes) > 0:
+            bbox_fd_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+            # Discard small boxes
+            for bbox_fd in bbox_fd_list:
+                if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
+                    bbox_fd_list.remove(bbox_fd)
+
+            # Check if bboxes are in a ROI
+            bbox_candidates = {}
+            for bbox_fd in bbox_fd_list:
+                bbox_candidates[bbox_fd] = []
+                for name, data in self.last_detection.items():
+                    bbox = data[config.BBOX_KEY]
+                    if utils.bbox_in_roi(bbox, bbox_fd, img):
+                        bbox_candidates[bbox_fd].append(name)
+
+            # Check for doubles
+            for bbox, names_list  in bbox_candidates.items():
+                if len(names_list) == 1:
+                    frame_data[names_list[0]][config.BBOX_KEY] = bbox
+                elif len(names_list) > 1:
+                    closest_idx = np.argmax([utils.get_bbox_dist(self.last_detection[name][config.BBOX_KEY], bbox) for name in names_list])
+                    frame_data[names_list[closest_idx]][config.BBOX_KEY] = bbox
+
+        for name in self.name_list:
+            if name not in frame_data:
+                frame_data[name][config.BBOX_KEY] = None
+        return frame_data
+
+    def add_tmp_track(self, name, bbox):
+
+
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
             model = Model(sess)
@@ -109,22 +157,18 @@ class MainTracker:
                 last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames))
 
                 for idx in range(frame_idx, last_frame):
-                    for name, tracker in self.trackers_list.items():
-                        tracker.idx = idx
-                        bbox, cur_frame = tracker.track(self.s_frames[idx])
-                        self.temp_track[name] = {config.BBOX_KEY: bbox}
-                        cur_frame = cur_frame * 255
-                        self.visualizer.prepare_img(cur_frame, idx)
+                    img = mpimg.imread(self.s_frames[0])
+                    img = np.array(img)
+                    frame_data = self.process_frame(img)
 
-                    # Check the overlay every frame
-                    ok, issues = self.check_overlay()
-                    if not ok:
-                        self.correct_overlay(issues)
-                    if idx != last_frame - 1:
-                        self.visualizer.plt_img(self.temp_track)
-                        self.visualizer.save_img(self.out_dir)
+                    # TODO Add to temporary list
 
-                        self.merge_temp()
+                track = {}
+                for name in self.name_list:
+                    if None in [data[config.BBOX_KEY] for data in self.temp_track[name]]:
+
+                        continue
+
 
                 # Check if the bbox is a face
                 frame_idx = last_frame

@@ -38,3 +38,5 @@ visualization.plt_img(img, bboxes_list)
 # cv2.imshow("aaaa", face)
 # cv2.waitKey()
 # cv2.destroyAllWindows()
+
+data = {"a":[{"bbox":[1,1,1,1]}, {"bbox":[2,2,2,2]}, {"bbox":None}]}

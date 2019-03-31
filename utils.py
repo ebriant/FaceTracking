@@ -52,6 +52,17 @@ def bbox_in_roi(bbox1, bbox2, img):
     return xmin < x < xmax and ymin < y < ymax
 
 
+def get_bbox_dist(bbox1, bbox2):
+    x1, y1 = bbox1[0] + bbox1[2] / 2, bbox1[1] + bbox1[3] / 2
+    x2, y2 = bbox2[0] + bbox2[2] / 2, bbox2[1] + bbox2[3] / 2
+    return np.sqrt((x1-x2)**2+(y1-y2)**2)
+
+
+def closest_bbox(bbox1, bbox_list):
+
+    return
+
+
 def get_roi(bbox, img):
     size = max(bbox[2], bbox[3])
     x_c = bbox[0] + bbox[2] / 2
