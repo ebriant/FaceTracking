@@ -176,8 +176,7 @@ class MainTracker:
         for name, data in self.temp_track.items():
             for name2, data2 in self.temp_track.items():
                 if name != name2 and name2 not in checked and \
-                        utils.bb_intersection_over_union(data[config.BBOX_KEY],
-                                                         data2[config.BBOX_KEY]) > config.overlay_threshold:
+                        (utils.bb_intersection_over_union(data[config.BBOX_KEY], data2[config.BBOX_KEY]) > config.overlay_threshold or utils.bb_contained(data[config.BBOX_KEY], data2[config.BBOX_KEY])):
                     print("[INFO] Overlay issue between {}:{} and {}:{}".format(name, data[config.BBOX_KEY], name2,
                                                                                 data2[config.BBOX_KEY]))
                     issues.append((name, name2))
@@ -220,80 +219,102 @@ class MainTracker:
     def check_faces(self, img):
         corrected_bbox = {}
         _, _, rbboxes = detect_faces(img, select_threshold=0.6)
-        if len(rbboxes) > 0:
-            bbox_fd_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
 
-            for bbox_fd in bbox_fd_list:
-                if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
-                    bbox_fd_list.remove(bbox_fd)
+        if len(rbboxes) == 0:
+            return
+        bbox_fd_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
 
-            print("[INFO] Face processing 1", bbox_fd_list)
-            for bbox_fd in bbox_fd_list:
-                for name, data in self.temp_track.items():
-                    bbox = data[config.BBOX_KEY]
-                    if utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold \
-                            and self.check_angular_order(name, bbox_fd, img):
-                        self.correct_tracker(name, bbox_fd)
-                        corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
-                        bbox_fd_list.remove(bbox_fd)
+        for bbox_fd in bbox_fd_list:
+            if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
+                bbox_fd_list.remove(bbox_fd)
+
+        for bbox_fd in bbox_fd_list:
+            vizu = [bbox_fd[0] - 1, bbox_fd[1] - 1, bbox_fd[2], bbox_fd[3]]
+            self.visualizer.draw_bbox(vizu, color=(0, 125, 255), thickness=2)
+
+
+        print(bbox_fd_list)
+        print(self.temp_track)
+        remaining_bbox = []
+        for idx, bbox_fd in enumerate(bbox_fd_list):
+            print(bbox_fd)
+            for name, data in self.temp_track.items():
+                bbox = data[config.BBOX_KEY]
+                if utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold \
+                        and self.check_angular_order(name, bbox_fd, img):
+                    self.correct_tracker(name, bbox_fd)
+                    corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
+                    remaining_bbox.append(idx)
+                    break
+        print(corrected_bbox)
+        bbox_fd_list = [bbox_fd_list[i] for i in remaining_bbox]
+        remaining_bbox = []
+
+        for idx, bbox_fd in enumerate(bbox_fd_list):
+            for name, data in self.temp_track.items():
+                bbox = data[config.BBOX_KEY]
+                # if name == "f":
+                    # if (utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold):
+                    #     print("fff###", self.check_angular_order(name, bbox_fd, img))
+
+                if utils.bbox_in_roi(bbox, bbox_fd, img) and self.check_angular_order(name, bbox_fd, img):
+                    self.correct_tracker(name, bbox_fd)
+                    corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
+                    remaining_bbox.append(idx)
+                    break
+
+        bbox_fd_list = [bbox_fd_list[i] for i in remaining_bbox]
+        if len(bbox_fd_list) == 0:
+            return
+
+        print("[INFO] More face to deal with", corrected_bbox)
+
+        corrected_bbox_angles_tmp = utils.get_bbox_dict_ang_pos(corrected_bbox, img)
+        corrected_bbox_angles = {}
+
+        for name in self.angular_order:
+            if name in corrected_bbox_angles_tmp.keys():
+                corrected_bbox_angles[name] = corrected_bbox_angles_tmp[name]
+
+        not_corrected_bbox_angles = {k: utils.get_bbox_angular_pos(v[config.BBOX_KEY], img) for k, v in
+                                     self.temp_track.items() if k not in corrected_bbox}
+        if not not_corrected_bbox_angles:
+            return
+
+        for bbox_fd in bbox_fd_list:
+            angle = utils.get_bbox_angular_pos(bbox_fd, img=img)
+            if corrected_bbox_angles:
+                prev_id, next_id = None, None
+                for name, value in corrected_bbox_angles.items():
+                    if angle > value:
+                        prev_id = name
                         break
-
-            print("[INFO] Face processing 2", bbox_fd_list)
-            for bbox_fd in bbox_fd_list:
-                for name, data in self.temp_track.items():
-                    bbox = data[config.BBOX_KEY]
-                    if utils.bbox_in_roi(bbox, bbox_fd, img) and self.check_angular_order(name, bbox_fd, img):
-                        self.correct_tracker(name, bbox_fd)
-                        corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
-                        bbox_fd_list.remove(bbox_fd)
+                for name, value in corrected_bbox_angles.items():
+                    if angle < value:
+                        next_id = name
                         break
+                if prev_id is None:
+                    prev_id = list(corrected_bbox_angles.keys())[-1]
+                if next_id is None:
+                    next_id = list(corrected_bbox_angles.keys())[0]
+                ang_order = self.angular_order * 2
+                start = ang_order.index(prev_id)
+                end = ang_order.index(next_id, start + 1)
+                potential_id_list = [i for i in ang_order[start + 1:end]]
+            else:
+                potential_id_list = self.angular_order
 
-            print("[INFO] More face to deal with", bbox_fd_list)
-            if len(bbox_fd_list) > 0:
-                corrected_bbox_angles_tmp = utils.get_bbox_dict_ang_pos(corrected_bbox, img)
-                corrected_bbox_angles = {}
-
-                for name in self.angular_order:
-                    if name in corrected_bbox_angles_tmp.keys():
-                        corrected_bbox_angles[name] = corrected_bbox_angles_tmp[name]
-
-                not_corrected_bbox_angles = {k: utils.get_bbox_angular_pos(v[config.BBOX_KEY], img) for k, v in
-                                             self.temp_track.items() if k not in corrected_bbox}
-                if not_corrected_bbox_angles:
-                    for bbox_fd in bbox_fd_list:
-                        angle = utils.get_bbox_angular_pos(bbox_fd, img=img)
-                        if corrected_bbox_angles:
-                            prev_id, next_id = None, None
-                            for name, value in corrected_bbox_angles.items():
-                                if angle > value:
-                                    prev_id = name
-                                    break
-                            for name, value in corrected_bbox_angles.items():
-                                if angle < value:
-                                    next_id = name
-                                    break
-                            if prev_id is None:
-                                prev_id = list(corrected_bbox_angles.keys())[-1]
-                            if next_id is None:
-                                next_id = list(corrected_bbox_angles.keys())[0]
-                            ang_order = self.angular_order * 2
-                            start = ang_order.index(prev_id)
-                            end = ang_order.index(next_id, start + 1)
-                            potential_id_list = [i for i in ang_order[start + 1:end]]
-                        else:
-                            potential_id_list = self.angular_order
-
-                        if len(potential_id_list) == 1 and self.check_angular_order(potential_id_list[0], bbox_fd, img):
-                            self.correct_tracker(potential_id_list[0], bbox_fd)
-                            print("[INFO] Assigned {} to children {}".format(bbox_fd, potential_id_list[0]))
-                        elif len(potential_id_list) == 0:
-                            break
-                        else:
-                            key, value = min(not_corrected_bbox_angles.items(), key=lambda kv: abs(kv[1] - angle))
-                            if self.check_angular_order(key, bbox_fd, img):
-                                self.correct_tracker(key, bbox_fd)
-                            print(
-                                "[INFO] Assigned {} to children {} by closest angular position".format(bbox_fd, key))
+            if len(potential_id_list) == 1 and self.check_angular_order(potential_id_list[0], bbox_fd, img):
+                self.correct_tracker(potential_id_list[0], bbox_fd)
+                print("[INFO] Assigned {} to children {}".format(bbox_fd, potential_id_list[0]))
+            elif len(potential_id_list) == 0:
+                break
+            else:
+                key, value = min(not_corrected_bbox_angles.items(), key=lambda kv: abs(kv[1] - angle))
+                if self.check_angular_order(key, bbox_fd, img):
+                    self.correct_tracker(key, bbox_fd)
+                print(
+                    "[INFO] Assigned {} to children {} by closest angular position".format(bbox_fd, key))
 
     def correct_tracker(self, name, bbox):
         self.temp_track[name][config.BBOX_KEY] = bbox
@@ -326,7 +347,6 @@ class MainTracker:
         prev = self.angular_order[(idx - 1) % l]
         next = self.angular_order[(idx + 1) % l]
         angles_dict = utils.get_bbox_dict_ang_pos(self.temp_track, img)
-        print("Verif", angles_dict[prev], angle, angles_dict[next])
         start, end = angles_dict[prev], angles_dict[next]
         end = end - start + 360 if (end - start) < 0 else end - start
         mid = angle - start + 360 if (angle - start) < 0 else angle - start

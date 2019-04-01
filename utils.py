@@ -39,6 +39,15 @@ def bb_intersection_over_union(boxA, boxB):
     return iou
 
 
+def bb_contained(bbox1, bbox2):
+    x1_1, y1_1 = bbox1[0], bbox1[1]
+    x2_1, y2_1 = bbox1[0] + bbox1[2], bbox1[1] + bbox1[3]
+    x1_2, y1_2 = bbox2[0], bbox2[1]
+    x2_2, y2_2 = bbox2[0] + bbox2[2], bbox2[1] + bbox2[3]
+    return (x1_1 < x1_2 and y1_1 < y1_2 and x2_1 > x2_2 and y2_1 > y2_2) \
+           or (x1_1 > x1_2 and y1_1 > y1_2 and x2_1 < x2_2 and y2_1 < y2_2)
+
+
 def bbox_in_roi(bbox1, bbox2, img):
     """
     Check if bbox2 is in bbox1 Region of Interest
@@ -50,6 +59,12 @@ def bbox_in_roi(bbox1, bbox2, img):
     xmin, ymin, xmax, ymax = get_roi(bbox1, img)
     x, y = bbox2[0] + bbox2[2] / 2, bbox2[1] + bbox2[3] / 2
     return xmin < x < xmax and ymin < y < ymax
+
+
+def get_bbox_dist(bbox1, bbox2):
+    x1, y1 = bbox1[0] + bbox1[2] / 2, bbox1[1] + bbox1[3] / 2
+    x2, y2 = bbox2[0] + bbox2[2] / 2, bbox2[1] + bbox2[3] / 2
+    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def get_roi(bbox, img):

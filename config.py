@@ -6,7 +6,7 @@ img_path = os.path.join(data_dir, "img")
 out_dir = os.path.join(data_dir, "output")
 save_box = True
 
-checking_treshold = 15
+checking_treshold = 10
 checking_scale = 1.8
 checking_min_size = 80
 min_bbox_size = 30
