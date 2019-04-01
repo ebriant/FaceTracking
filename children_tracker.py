@@ -80,7 +80,7 @@ class MainTracker:
         # print(self.temp_track)
 
         self.name_list = ["a", "b", "c", "d", "e", "f"]
-        self.temp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
+        self.last_detection = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
                            'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
                            'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
         self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]}, 'c': {'bbox': [[94,
@@ -107,9 +107,14 @@ class MainTracker:
                 self.trackers_list[name] = tracker
 
     def process_frame(self, img):
-        frame_data = {}
-        for name in self.name_list:
-            frame_data[name] = {}
+        """
+        Perform face detection on an image and associate detected faces with an id
+        :param img:
+        :return:
+        """
+
+        print("Last detection ####", self.last_detection)
+        frame_data = {name: {} for name in self.name_list}
         _, _, rbboxes = detect_faces(img, select_threshold=0.6)
         if len(rbboxes) > 0:
             bbox_fd_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
@@ -119,29 +124,31 @@ class MainTracker:
                     bbox_fd_list.remove(bbox_fd)
 
             # Check if bboxes are in a ROI
-            bbox_candidates = {}
-            for bbox_fd in bbox_fd_list:
-                bbox_candidates[bbox_fd] = []
+            bbox_candidates = []
+
+            for idx, bbox_fd in enumerate(bbox_fd_list):
+                bbox_candidates.append([])
                 for name, data in self.last_detection.items():
                     bbox = data[config.BBOX_KEY]
-                    if utils.bbox_in_roi(bbox, bbox_fd, img):
-                        bbox_candidates[bbox_fd].append(name)
+                    if bbox is not None and utils.bbox_in_roi(bbox, bbox_fd, img):
+                        bbox_candidates[idx].append(name)
 
             # Check for doubles
-            for bbox, names_list  in bbox_candidates.items():
+            for idx, bbox in enumerate(bbox_fd_list):
+                names_list = bbox_candidates[idx]
                 if len(names_list) == 1:
                     frame_data[names_list[0]][config.BBOX_KEY] = bbox
                 elif len(names_list) > 1:
-                    closest_idx = np.argmax([utils.get_bbox_dist(self.last_detection[name][config.BBOX_KEY], bbox) for name in names_list])
+                    closest_idx = np.argmax(
+                        [utils.get_bbox_dist(self.last_detection[name][config.BBOX_KEY], bbox) for name in names_list])[
+                        0]
                     frame_data[names_list[closest_idx]][config.BBOX_KEY] = bbox
 
         for name in self.name_list:
-            if name not in frame_data:
+            if config.BBOX_KEY not in frame_data[name]:
                 frame_data[name][config.BBOX_KEY] = None
+        self.last_detection = frame_data
         return frame_data
-
-    def add_tmp_track(self, name, bbox):
-
 
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
@@ -153,37 +160,47 @@ class MainTracker:
 
             frame_idx = 1
             while frame_idx < len(self.s_frames):
-                self.temp_track = {}
+                self.temp_track = {name: {config.BBOX_KEY: []} for name in self.name_list}
                 last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames))
 
                 for idx in range(frame_idx, last_frame):
-                    img = mpimg.imread(self.s_frames[0])
+                    img = mpimg.imread(self.s_frames[idx])
                     img = np.array(img)
                     frame_data = self.process_frame(img)
+                    for name in self.name_list:
+                        self.temp_track[name][config.BBOX_KEY].append(frame_data[name][config.BBOX_KEY])
 
-                    # TODO Add to temporary list
-
-                track = {}
                 for name in self.name_list:
-                    if None in [data[config.BBOX_KEY] for data in self.temp_track[name]]:
+                    # print("########", self.temp_track, name)
+                    # print(self.temp_track[name][config.BBOX_KEY])
+                    if self.temp_track[name][config.BBOX_KEY][0] is None:
+                        self.track(name, frame_idx, last_frame, self.data[name][config.BBOX_KEY][-1])
 
-                        continue
+                    elif None in self.temp_track[name][config.BBOX_KEY]:
+                        self.track(name, frame_idx, last_frame, self.temp_track[name][config.BBOX_KEY][0])
 
+                self.last_detection = {name: {config.BBOX_KEY: self.temp_track[name][config.BBOX_KEY][-1]} for name in
+                                       self.name_list}
+                for idx in range(frame_idx, last_frame):
+                    img = mpimg.imread(self.s_frames[0])
+                    img = np.array(img)
+                    self.visualizer.prepare_img(img, idx)
+                    plot = {name: {config.BBOX_KEY: self.temp_track[name][config.BBOX_KEY][idx-frame_idx]} for name in
+                            self.name_list}
+                    self.visualizer.plt_img(plot)
+                    self.visualizer.save_img(self.out_dir)
 
-                # Check if the bbox is a face
                 frame_idx = last_frame
-                self.check_faces(cur_frame)
                 self.merge_temp()
-                # Visualization
-                self.visualizer.plt_img(self.temp_track)
-                self.visualizer.save_img(self.out_dir)
+
             return
 
     def merge_temp(self):
         for name, data in self.temp_track.items():
-            self.data[name][config.BBOX_KEY].append(list(self.temp_track[name][config.BBOX_KEY]))
+            for bbox in data[config.BBOX_KEY]:
+                self.data[name][config.BBOX_KEY].append(list(bbox))
 
-    def track(self, tracker, first_frame=1, last_frame=1):
+    def track(self, name, first_frame=1, last_frame=1, bbox_init=None):
         """
         Tracks a single face from first_frame to last_frame
         :param tracker:
@@ -191,28 +208,28 @@ class MainTracker:
         :param last_frame:
         :return:
         """
-        landmarks_list = []
+        tracker = self.trackers_list[name]
+        if bbox_init:
+            tracker.redefine_roi(bbox_init)
+
         bbox_list = []
-        with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-            for idx in range(first_frame, last_frame):
-                tracker.idx = idx
-                bbox, cur_frame = tracker.track(self.s_frames[idx])
-                bbox_list.append(bbox)
-                cur_frame = cur_frame * 255
+        for idx in range(first_frame, last_frame):
+            tracker.idx = idx
+            bbox, cur_frame = tracker.track(self.s_frames[idx])
+            bbox_list.append(bbox)
 
-                landmarks = None
+            # img_cropped_fd, crop_coord_fd = utils.crop_roi(cur_frame, bbox, 1.4)
+            # face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
+            # landmarks = self.fa.get_landmarks(face_rot)
+            # if landmarks is not None :
+            #     landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(landmarks[-1], face_rot, -angle), crop_coord_fd)
+            # landmarks_list.append(landmarks)
 
-                # img_cropped_fd, crop_coord_fd = utils.crop_roi(cur_frame, bbox, 1.4)
-                # face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
-                # landmarks = self.fa.get_landmarks(face_rot)
-                # if landmarks is not None :
-                #     landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(landmarks[-1], face_rot, -angle), crop_coord_fd)
-                # landmarks_list.append(landmarks)
+        for idx, bbox in enumerate(bbox_list):
+            if self.temp_track[name][config.BBOX_KEY][idx] is None:
+                self.temp_track[name][config.BBOX_KEY][idx] = bbox
 
-                # visualization
-                self.visualizer.plt_img(cur_frame, [bbox], landmarks=landmarks)
-
-        return bbox_list, landmarks_list
+        return bbox_list
 
     def check_overlay(self):
         issues = []
@@ -232,6 +249,7 @@ class MainTracker:
         else:
             return False, issues
 
+    # USELESS FOR NOW
     def correct_overlay(self, issues):
         for issue in issues:
             name1 = issue[0]
@@ -261,6 +279,7 @@ class MainTracker:
                 self.trackers_list[name1].redefine_roi(prev_bbox1)
         return
 
+    # USELESS FOR NOW
     def check_faces(self, img):
         corrected_bbox = {}
         _, _, rbboxes = detect_faces(img, select_threshold=0.6)
@@ -339,10 +358,12 @@ class MainTracker:
                             print(
                                 "[INFO] Assigned {} to children {} by closest angular position".format(bbox_fd, key))
 
+    # USELESS FOR NOW
     def correct_tracker(self, name, bbox):
         self.temp_track[name][config.BBOX_KEY] = bbox
         self.trackers_list[name].redefine_roi(bbox)
 
+    # USELESS FOR NOW
     def check_face(self, bbox, fd_bbox_list, name):
         corrected_bbox = []
         for bbox_fd in fd_bbox_list:

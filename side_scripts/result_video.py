@@ -2,39 +2,25 @@ import cv2
 import numpy as np
 import config
 import os
-
-dir1 = os.path.join(config.data_dir, "output_memtrack")
-dir2 = os.path.join(config.data_dir, "output")
-
-cap = cv2.VideoCapture(0)
-
-# Define the codec and create VideoWriter object
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('data/output.avi',fourcc, 20.0, (640,480))
-
-dir1_images = os.listdir(dir1)
-dir2_images = os.listdir(dir2)
+import argparse
 
 
-while(cap.isOpened()):
-    ret, frame = cap.read()
-    if ret==True:
-        frame = cv2.flip(frame,0)
-
-
-        # write the flipped frame
+def to_video(dir, name):
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter(os.path.join(dir, name), fourcc, 30.0, (640,640))
+    dir_img = os.listdir(dir)
+    for img in dir_img:
+        frame = cv2.imread(os.path.join(dir, img))
         out.write(frame)
+    # Release everything if job is finished
+    out.release()
 
-        cv2.imshow('frame',frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    else:
-        break
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-d', '--dir', type=str, default="data/output/171214_1_old",
+                        help='the directory to put in video')
+    parser.add_argument('-n', '--name', type=str, default="video.mp4",
+                        help='the video name')
 
-# Release everything if job is finished
-cap.release()
-out.release()
-cv2.destroyAllWindows()
-
-
-vis = np.concatenate((img1, img2), axis=1)
+    args = parser.parse_args()
+    to_video(args.dir, args.name)
