@@ -67,11 +67,11 @@ def get_bbox_dist(bbox1, bbox2):
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
-def get_roi(bbox, img):
+def get_roi(bbox, img, scale=config.roi_ratio):
     size = max(bbox[2], bbox[3])
     x_c = bbox[0] + bbox[2] / 2
     y_c = bbox[1] + bbox[3] / 2
-    new_size = max(config.checking_min_size, size * config.checking_scale)
+    new_size = max(config.roi_min_size, size * scale)
     xmin = int(max(0, x_c - new_size / 2))
     ymin = int(max(0, y_c - new_size / 2))
     xmax = int(min(img.shape[0], x_c + new_size / 2))
@@ -79,16 +79,8 @@ def get_roi(bbox, img):
     return xmin, ymin, xmax, ymax
 
 
-def crop_roi(img, bbox, scale=config.checking_scale):
-    size = max(bbox[2], bbox[3])
-    x_c = bbox[0] + bbox[2] / 2
-    y_c = bbox[1] + bbox[3] / 2
-    new_size = max(config.checking_min_size, size * scale)
-    xmin = int(max(0, x_c - new_size / 2))
-    ymin = int(max(0, y_c - new_size / 2))
-    xmax = int(min(img.shape[0], x_c + new_size / 2))
-    ymax = int(min(img.shape[1], y_c + new_size / 2))
-
+def crop_roi(bbox, img, scale=config.roi_ratio):
+    xmin, ymin, xmax, ymax = get_roi(bbox, img, scale)
     return img[ymin:ymax, xmin:xmax], [xmin, ymin, xmin - xmax, ymin - ymax]
 
 
@@ -190,3 +182,11 @@ def get_bbox_angular_pos(bbox, img, center_coord=None):
     x = bbox[0] + bbox[2] - x_c
     y = img.shape[1] - (bbox[1] + bbox[3]) - y_c
     return np.degrees(np.arctan2(y, x))
+
+
+def get_angular_dist(bbox1, bbox2, img):
+    x_c, y_c = img.shape[0] // 2, img.shape[1] // 2
+    angles1 = get_bbox_angular_pos(bbox1, img, center_coord=(x_c, y_c))
+    angles2 = get_bbox_angular_pos(bbox2, img, center_coord=(x_c, y_c))
+    dist = abs(angles1-angles2)
+    return dist

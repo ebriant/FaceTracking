@@ -73,18 +73,18 @@ class VisualizerOpencv:
         self.idx = frame_idx
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(self.img, dtype=np.uint8)
-        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
+        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
     def save_img(self, out_dir):
         img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
         cv2.imwrite(img_write_path, self.img)
 
-    def draw_bbox(self, bbox, label="", color=(0, 255, 0), thickness=2):
+    def draw_bbox(self, bbox, label="", color=(0, 255, 0), **kwargs):
         p1 = (int(bbox[0]), int(bbox[1]))
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(self.img, p1, p2, color, thickness)
+        cv2.rectangle(self.img, p1, p2, color, **kwargs)
         p1 = (p1[0], p1[1] - 10)
-        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
+        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 1, color)
         return
 
     def plot_facial_features(self, landmarks_list):
@@ -109,7 +109,6 @@ class VisualizerOpencv:
                         cv2.imshow(title, self.img)
                         selected_bbox.append(bbox)
 
-
         def is_in_bbox(box, x, y):
             if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
                 return True
@@ -126,7 +125,7 @@ class VisualizerOpencv:
     def plt_img(self, tracking_data, title="image"):
         for name, data in tracking_data.items():
             bbox = [int(e) for e in data[config.BBOX_KEY]]
-            self.draw_bbox(bbox, label=name, color=self.BBOX_COLOR)
+            self.draw_bbox(bbox, label=name, color=self.BBOX_COLOR, thickness=2)
 
             if config.LANDMARKS_KEY in data:
                 self.plot_facial_features(data[config.LANDMARKS_KEY])
