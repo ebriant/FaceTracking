@@ -1,12 +1,12 @@
 import os
 
 data_dir = "data"
-video_dir = os.path.join(data_dir, "videos")
+video_path = os.path.join(data_dir, "videos/171214_1.MP4")
 img_path = os.path.join(data_dir, "img")
-out_dir = os.path.join(data_dir, "output")
+out_dir = os.path.join(data_dir, "output/171214_1_30")
 save_box = True
 
-checking_treshold = 10
+checking_treshold = 30
 roi_ratio = 2
 roi_min_size = 80
 min_bbox_size = 30
@@ -18,14 +18,13 @@ LANDMARKS_KEY= "landmarks"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
+
 ##########################___DATASETS___#########################
 
 wider = "C:/Users/Horio/Documents/Datasets/face_detection/WIDER"
 
 
-
 ##########################____MEMTRACK____#############################
-
 #================= data preprocessing ==========================
 home_path = 'C:/Users/Horio/Documents/PotatoNet/trackers/memtrack/Home'
 root_path = home_path+'/Data/ILSVRC'

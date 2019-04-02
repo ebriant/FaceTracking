@@ -48,16 +48,15 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class MainTracker:
-    def __init__(self, video_name):
+    def __init__(self):
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
         self.trackers_list = {}
         self.fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         # Load the video sequence
-        self.s_frames = load_seq_video(video_name)
-        self.out_dir = os.path.join(config.out_dir, video_name[:-4])
-        if not os.path.exists(self.out_dir):
-            os.mkdir(self.out_dir)
+        self.s_frames = load_seq_video()
+        if not os.path.exists(config.out_dir):
+            os.mkdir(config.out_dir)
         self.data = {}
         self.temp_track = {}
         self.angular_order = []
@@ -126,7 +125,7 @@ class MainTracker:
                         self.correct_overlay(issues)
                     if idx != last_frame - 1:
                         self.visualizer.plt_img(self.temp_track)
-                        self.visualizer.save_img(self.out_dir)
+                        self.visualizer.save_img(config.out_dir)
 
                         self.merge_temp()
 
@@ -136,7 +135,7 @@ class MainTracker:
                 self.merge_temp()
                 # Visualization
                 self.visualizer.plt_img(self.temp_track)
-                self.visualizer.save_img(self.out_dir)
+                self.visualizer.save_img(config.out_dir)
             return
 
     def merge_temp(self):
@@ -367,8 +366,9 @@ class MainTracker:
         return True
 
 # Main image processing routine.
-def load_seq_video(video_name):
-    cap = cv2.VideoCapture(os.path.join(config.video_dir, video_name))
+def load_seq_video():
+    cap = cv2.VideoCapture(config.video_path)
+    _, video_name = os.path.split(config.video_path)
     img_dir_path = os.path.join(config.img_path, video_name[:-4])
     if not os.path.exists(img_dir_path):
         os.mkdir(img_dir_path)
@@ -439,10 +439,5 @@ def detect_faces(img, select_threshold=0.35, nms_threshold=0.1):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-v', '--video', type=str, default="171214_1.MP4",
-                        help='the video to be processed')
-    args = parser.parse_args()
-
-    main_tracker = MainTracker(args.video)
+    main_tracker = MainTracker()
     main_tracker.start_tracking()
