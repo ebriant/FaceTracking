@@ -82,8 +82,8 @@ def process_image(img, select_threshold=0.35, nms_threshold=0.1):
 
 def load_seq_video():
     cap = cv2.VideoCapture(config.sequence_path)
-    if not os.path.exists(config.img_path) :
-        os.mkdir(config.img_path)
+    if not os.path.exists(config.img_dir) :
+        os.mkdir(config.img_dir)
 
     # Check if camera opened successfully
     if (cap.isOpened() == False):
@@ -97,9 +97,9 @@ def load_seq_video():
         if ret == True:
 
             # Display the resulting frame
-            if not os.path.exists(config.img_path):
-                os.makedirs(config.img_path)
-            img_write_path = os.path.join(config.img_path, "%05d.jpg" % frm_count)
+            if not os.path.exists(config.img_dir):
+                os.makedirs(config.img_dir)
+            img_write_path = os.path.join(config.img_dir, "%05d.jpg" % frm_count)
             if not os.path.exists(img_write_path):
                 cv2.imwrite(img_write_path, frame)
             frm_count += 1
@@ -110,8 +110,8 @@ def load_seq_video():
     # When everything done, release the video capture object
     cap.release()
 
-    img_names = sorted(os.listdir(config.img_path))
-    s_frames = [os.path.join(config.img_path, img_name) for img_name in img_names]
+    img_names = sorted(os.listdir(config.img_dir))
+    s_frames = [os.path.join(config.img_dir, img_name) for img_name in img_names]
 
     return s_frames
 

@@ -2,6 +2,42 @@ import numpy as np
 import config
 import cv2
 import imutils
+import os
+
+
+def load_seq_video():
+    cap = cv2.VideoCapture(config.video_path)
+    _, video_name = os.path.split(config.video_path)
+    img_dir_path = os.path.join(config.img_dir, video_name[:-4])
+    if not os.path.exists(img_dir_path):
+        os.mkdir(img_dir_path)
+
+    # Check if camera opened successfully
+    if cap.isOpened() is False:
+        print("Error opening video stream or file")
+
+    # Read until video is completed
+    frm_count = 0
+    while cap.isOpened() and frm_count < 5000:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        if ret:
+            # Display the resulting frame
+            img_write_path = os.path.join(img_dir_path, "%05d.jpg" % frm_count)
+            if not os.path.exists(img_write_path):
+                cv2.imwrite(img_write_path, frame)
+            frm_count += 1
+        # Break the loop
+        else:
+            break
+
+    # When everything done, release the video capture object
+    cap.release()
+
+    img_names = sorted(os.listdir(img_dir_path))
+    s_frames = [os.path.join(img_dir_path, img_name) for img_name in img_names]
+
+    return s_frames
 
 
 # Bbox coord must be in Pixels and on the form (TL corner x, TL corner Y, Width, Height)
@@ -165,28 +201,23 @@ def rotate_landmarks(landmarks, img, angle):
     return landmarks
 
 
-def get_bbox_dict_ang_pos(bbox_dict, img):
-    x_c, y_c = img.shape[0] // 2, img.shape[1] // 2
+def get_bbox_dict_ang_pos(bbox_dict, img_shape):
     angles_dict = {}
     for name, data in bbox_dict.items():
         bbox = data[config.BBOX_KEY]
-        angles_dict[name] = get_bbox_angular_pos(bbox, img, center_coord=(x_c, y_c))
+        angles_dict[name] = get_bbox_angular_pos(bbox, img_shape)
     return angles_dict
 
 
-def get_bbox_angular_pos(bbox, img, center_coord=None):
-    if center_coord is not None:
-        x_c, y_c = center_coord[0], center_coord[1]
-    else:
-        x_c, y_c = img.shape[0] // 2, img.shape[1] // 2
+def get_bbox_angular_pos(bbox, img_shape):
+    x_c, y_c = img_shape[0] // 2, img_shape[1] // 2
     x = bbox[0] + bbox[2] - x_c
-    y = img.shape[1] - (bbox[1] + bbox[3]) - y_c
+    y = img_shape[1] - (bbox[1] + bbox[3]) - y_c
     return np.degrees(np.arctan2(y, x))
 
 
-def get_angular_dist(bbox1, bbox2, img):
-    x_c, y_c = img.shape[0] // 2, img.shape[1] // 2
-    angles1 = get_bbox_angular_pos(bbox1, img, center_coord=(x_c, y_c))
-    angles2 = get_bbox_angular_pos(bbox2, img, center_coord=(x_c, y_c))
+def get_angular_dist(bbox1, bbox2, img_shape):
+    angles1 = get_bbox_angular_pos(bbox1, img_shape)
+    angles2 = get_bbox_angular_pos(bbox2, img_shape)
     dist = abs(angles1-angles2)
     return dist

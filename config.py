@@ -1,11 +1,15 @@
 import os
+import logging
 
+logging_level = logging.INFO
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_1.MP4")
-img_path = os.path.join(data_dir, "img")
+img_dir = os.path.join(data_dir, "img")
 out_dir = os.path.join(data_dir, "output/171214_1_30")
+label_dir = os.path.join(data_dir, "labels")
 save_box = True
 
+angle_proximity_treshhold = 5
 checking_treshold = 30
 roi_ratio = 2
 roi_min_size = 80
@@ -17,6 +21,8 @@ BBOX_KEY = "bbox"
 LANDMARKS_KEY= "landmarks"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
+
+face_detection_trh = 0.95
 
 
 ##########################___DATASETS___#########################

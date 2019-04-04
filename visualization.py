@@ -69,7 +69,7 @@ class VisualizerOpencv:
         self.SELECTED_COLOR = tuple([int(a * 255) for a in reversed(config.SELECTED_COLOR)])
         self.idx = 0
 
-    def prepare_img(self, img, frame_idx):
+    def prepare_img(self, img, frame_idx=0):
         self.idx = frame_idx
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(self.img, dtype=np.uint8)
@@ -137,3 +137,36 @@ class VisualizerOpencv:
             if cv2.waitKey(1):
                 break
         return self.img
+
+    def ask_ground_truth(self, pt_nb=6, title="image"):
+        centers = []
+
+        def mouse_position(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONUP:
+                centers.append((x, y))
+                cv2.circle(self.img, (x, y), 4, color=self.SELECTED_COLOR, thickness=5)
+                cv2.imshow(title, self.img)
+
+        # Shows image and wait for user action if callback
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.setMouseCallback(title, mouse_position)
+        cv2.imshow(title, self.img)
+        while True:
+            key = cv2.waitKey()
+            if key == 8:
+                centers = []
+                print("reset")
+            else:
+                break
+
+        print(key)
+
+        # if key == 8:
+        #     centers = []
+        #     print("reset")
+        # else:
+        #     cv2.destroyAllWindows()
+
+        cv2.destroyAllWindows()
+        print(centers)
+        return centers
