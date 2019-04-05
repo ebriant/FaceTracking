@@ -4,9 +4,8 @@ import os
 
 # Data should be x y w h
 class DataHandler:
-    def __init__(self, name):
-        self.dump_file = os.path.join(config.tracking_data, "%s.txt" % name)
-
+    def __init__(self, path):
+        self.dump_file = path
         with open(self.dump_file, "w+"):
             return
 

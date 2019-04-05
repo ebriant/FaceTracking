@@ -5,7 +5,7 @@ logging_level = logging.INFO
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_1.MP4")
 img_dir = os.path.join(data_dir, "img")
-out_dir = os.path.join(data_dir, "output/171214_1_30")
+out_dir = os.path.join(data_dir, "output/171214_1_verif30")
 label_dir = os.path.join(data_dir, "labels")
 save_box = True
 

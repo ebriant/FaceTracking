@@ -221,3 +221,24 @@ def get_angular_dist(bbox1, bbox2, img_shape):
     angles2 = get_bbox_angular_pos(bbox2, img_shape)
     dist = abs(angles1-angles2)
     return dist
+
+
+def get_list_disorder(list1=[], list2=[]):
+    l = len(list1)
+    start = list2.index(list1[0])
+    list2 = list2[start:] + list2[:start]
+    for i, n in enumerate(list1):
+        continue
+    return
+
+
+def is_point_in_bbox(bbox, point):
+    return bbox[0] < point[0] < bbox[0] + bbox[2] and bbox[1] < point[1] < bbox[1] + bbox[3]
+
+
+def is_point_in_bbox_list(bbox_list, point):
+    for bbox in bbox_list:
+        if is_point_in_bbox(bbox, point):
+            return True
+    return False
+
