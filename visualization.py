@@ -115,7 +115,7 @@ class VisualizerOpencv:
             return False
 
         # Shows image and wait for user action if callback
-        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.namedWindow(title)
         cv2.setMouseCallback(title, mouse_position)
         cv2.imshow(title, self.img)
         cv2.waitKey()
@@ -131,7 +131,7 @@ class VisualizerOpencv:
                 self.plot_facial_features(data[config.LANDMARKS_KEY])
 
         # Shows image and wait for user action if callback
-        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.namedWindow(title)
         while True:
             cv2.imshow(title, self.img)
             if cv2.waitKey(1):
@@ -148,7 +148,7 @@ class VisualizerOpencv:
                 cv2.imshow(title, self.img)
 
         # Shows image and wait for user action if callback
-        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.namedWindow(title)
         cv2.setMouseCallback(title, mouse_position)
         cv2.imshow(title, self.img)
         while True:
@@ -158,6 +158,5 @@ class VisualizerOpencv:
                 return None
             else:
                 break
-        print(key)
         cv2.destroyAllWindows()
         return centers

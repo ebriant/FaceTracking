@@ -17,19 +17,20 @@ def load_seq_video():
         print("Error opening video stream or file")
 
     # Read until video is completed
-    frm_count = 0
-    while cap.isOpened() and frm_count < config.max_frame:
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-        if ret:
-            # Display the resulting frame
-            img_write_path = os.path.join(img_dir_path, "%05d.jpg" % frm_count)
-            if not os.path.exists(img_write_path):
-                cv2.imwrite(img_write_path, frame)
-            frm_count += 1
-        # Break the loop
-        else:
-            break
+    if int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) != len(os.listdir(img_dir_path)):
+        frm_count = 0
+        while cap.isOpened() and frm_count < config.max_frame:
+            # Capture frame-by-frame
+            ret, frame = cap.read()
+            if ret:
+                # Display the resulting frame
+                img_write_path = os.path.join(img_dir_path, "%05d.jpg" % frm_count)
+                if not os.path.exists(img_write_path):
+                    cv2.imwrite(img_write_path, frame)
+                frm_count += 1
+            # Break the loop
+            else:
+                break
 
     # When everything done, release the video capture object
     cap.release()

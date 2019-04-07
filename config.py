@@ -8,7 +8,9 @@ img_dir = os.path.join(data_dir, "img")
 out_dir = os.path.join(data_dir, "output/171214_1_verif30")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
+# img_scale = 1
 max_frame = 50000
+
 
 angle_proximity_treshhold = 5
 checking_treshold = 30

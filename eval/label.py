@@ -5,8 +5,10 @@ import numpy as np
 import argparse
 import os
 import config
+import cv2
 
 RATE = 30
+SCALING = 1.5
 
 
 class Labeler:
@@ -27,10 +29,12 @@ class Labeler:
             if self.overwrite or not self.data_exists(idx):
                 img = mpimg.imread(self.s_frames[idx])
                 img = np.array(img)
+                img = cv2.resize(img, None, fx=SCALING, fy=SCALING)
                 frame_data = None
                 while frame_data is None or len(frame_data) != len(self.names_list):
                     self.visualizer.prepare_img(img, idx)
                     frame_data = self.visualizer.ask_ground_truth()
+                frame_data = [(int(a[0]//SCALING), int(a[1]//SCALING)) for a in frame_data]
                 self.data[idx] = {self.names_list[i]: point for i, point in enumerate(frame_data)}
                 self.save_data()
 
