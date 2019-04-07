@@ -138,7 +138,7 @@ class VisualizerOpencv:
                 break
         return self.img
 
-    def ask_ground_truth(self, pt_nb=6, title="image"):
+    def ask_ground_truth(self, title="image"):
         centers = []
 
         def mouse_position(event, x, y, flags, param):
@@ -153,20 +153,11 @@ class VisualizerOpencv:
         cv2.imshow(title, self.img)
         while True:
             key = cv2.waitKey()
-            if key == 8:
-                centers = []
+            if key == 8 or key == ord('b'):
                 print("reset")
+                return None
             else:
                 break
-
         print(key)
-
-        # if key == 8:
-        #     centers = []
-        #     print("reset")
-        # else:
-        #     cv2.destroyAllWindows()
-
         cv2.destroyAllWindows()
-        print(centers)
         return centers

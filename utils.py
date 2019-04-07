@@ -18,7 +18,7 @@ def load_seq_video():
 
     # Read until video is completed
     frm_count = 0
-    while cap.isOpened() and frm_count < 5000:
+    while cap.isOpened() and frm_count < config.max_frame:
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret:

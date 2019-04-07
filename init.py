@@ -160,7 +160,7 @@ def display_result(image, pred_boxes, frame_idx, seq_name=None):
         image = cv2.merge([b, g, r])
     pred_boxes = pred_boxes.astype(int)
     cv2.rectangle(image, tuple(pred_boxes[0:2]), tuple(pred_boxes[0:2] + pred_boxes[2:4]), (0, 0, 255), 2)
-    if config.save_box:
+    if config.save_img:
         path = os.path.join(config.save_path, seq_name, '%04d.jpg' % frame_idx).replace("\\", "/")
         cv2.imwrite(path, image)
     cv2.putText(image, 'Frame: %d' % frame_idx, (20, 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 255))

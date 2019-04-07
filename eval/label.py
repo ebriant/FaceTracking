@@ -24,19 +24,18 @@ class Labeler:
 
     def get_data(self):
         for idx in range(0, len(self.s_frames), RATE):
-            if self.overwrite or not os.path.isfile(self.dump_file) or not self.data_exists(idx):
+            if self.overwrite or not self.data_exists(idx):
                 img = mpimg.imread(self.s_frames[idx])
                 img = np.array(img)
-                self.visualizer.prepare_img(img, idx)
-                frame_data = self.visualizer.ask_ground_truth(pt_nb=len(self.names_list))
+                frame_data = None
+                while frame_data is None or len(frame_data) != len(self.names_list):
+                    self.visualizer.prepare_img(img, idx)
+                    frame_data = self.visualizer.ask_ground_truth()
                 self.data[idx] = {self.names_list[i]: point for i, point in enumerate(frame_data)}
                 self.save_data()
 
     def data_exists(self, index):
-        with open(self.dump_file, "r") as f:
-            d = eval(f.read())
-            print(d)
-        return index in d
+        return index in self.data
 
     def save_data(self):
         with open(self.dump_file, "w+") as f:
@@ -51,6 +50,5 @@ if __name__ == '__main__':
                         help='the video name')
 
     args = parser.parse_args()
-    print(args.overwrite)
     labeler = Labeler(args.names, args.overwrite)
     labeler.get_data()

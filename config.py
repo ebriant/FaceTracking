@@ -7,7 +7,8 @@ video_path = os.path.join(data_dir, "videos/171214_1.MP4")
 img_dir = os.path.join(data_dir, "img")
 out_dir = os.path.join(data_dir, "output/171214_1_verif30")
 label_dir = os.path.join(data_dir, "labels")
-save_box = True
+save_img = True
+max_frame = 50000
 
 angle_proximity_treshhold = 5
 checking_treshold = 30
