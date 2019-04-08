@@ -36,7 +36,7 @@ def load_seq_video():
     cap.release()
 
     img_names = sorted(os.listdir(img_dir_path))
-    s_frames = [os.path.join(img_dir_path, img_name) for img_name in img_names]
+    s_frames = [os.path.join(img_dir_path, img_name) for img_name in img_names[:min(config.max_frame, len(img_names))]]
 
     return s_frames
 
@@ -54,26 +54,13 @@ def reformat_bbox_coord(bbox, img_width, img_height=0):
 
 def bb_intersection_over_union(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[0] + boxA[2], boxB[0] + boxB[2])
-    yB = min(boxA[1] + boxA[3], boxB[1] + boxB[3])
+    xA, yA = max(boxA[0], boxB[0]), max(boxA[1], boxB[1])
+    xB, yB = min(boxA[0] + boxA[2], boxB[0] + boxB[2]), min(boxA[1] + boxA[3], boxB[1] + boxB[3])
 
-    # compute the area of intersection rectangle
     interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-
-    # compute the area of both the prediction and ground-truth
-    # rectangles
     boxAArea = (boxA[2] + 1) * (boxA[3] + 1)
     boxBArea = (boxB[2] + 1) * (boxB[3] + 1)
-
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-
-    # return the intersection over union value
-    return iou
+    return interArea / float(boxAArea + boxBArea - interArea)
 
 
 def bb_contained(bbox1, bbox2):

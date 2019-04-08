@@ -46,6 +46,8 @@ config_proto.gpu_options.allow_growth = True
 
 logging.basicConfig(level=config.logging_level)
 
+START_FRAME = 1
+
 
 class MainTracker:
     def __init__(self):
@@ -101,6 +103,11 @@ class MainTracker:
         for name in sorted(angles_dict, key=angles_dict.get):
             self.angular_order.append(name)
 
+        # with open("data/output/171214_1_verif30/171214_1.txt") as f:
+        #     self.data = eval(f.read())
+        # self.data = {name : {config.BBOX_KEY:self.data[name][config.BBOX_KEY][:START_FRAME+1]} for name in self.data}
+        # self.tmp_track = {'a': {'bbox': [389, 245, 76, 59]}, 'b': {'bbox': [246, 137, 61, 52]}, 'c': {'bbox': [256, 234, 99, 61]}, 'd': {'bbox': [179, 403, 69, 62]}, 'e': {'bbox': [318, 489, 48, 52]}, 'f': {'bbox': [410, 372, 84, 55]}}
+
         print(self.angular_order)
 
         # Run the tracking process
@@ -114,7 +121,7 @@ class MainTracker:
                 tracker.initialize(self.s_frames[1], data[config.BBOX_KEY][0])
                 self.trackers_list[name] = tracker
 
-            frame_idx = 1
+            frame_idx = START_FRAME
             while frame_idx < len(self.s_frames):
                 self.tmp_track = {}
                 last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames))
@@ -133,7 +140,6 @@ class MainTracker:
                     # Check the overlay every frame
                     issues = self.check_overlay()
                     if issues:
-                        self.plot_overlay(issues)
                         self.correct_overlay(issues)
                     if idx != last_frame - 1:
                         self.visualizer.plt_img(self.tmp_track)
@@ -193,12 +199,13 @@ class MainTracker:
             for name2, data2 in self.tmp_track.items():
                 if name != name2 and name2 not in checked and \
                         (utils.bb_intersection_over_union(data[config.BBOX_KEY], data2[
-                            config.BBOX_KEY]) > config.overlay_threshold or utils.bb_contained(data[config.BBOX_KEY],
+                            config.BBOX_KEY]) > config.tracking_overlay_threshold or utils.bb_contained(data[config.BBOX_KEY],
                                                                                                data2[config.BBOX_KEY])):
                     logging.warning("Overlay issue between {}:{} and {}:{}".format(name, data[config.BBOX_KEY], name2,
                                                                                    data2[config.BBOX_KEY]))
                     issues.append((name, name2))
             checked.append(name)
+        self.plot_overlay(issues)
         return issues
 
     def correct_overlay(self, issues):
@@ -217,17 +224,12 @@ class MainTracker:
             iou2 = utils.bb_intersection_over_union(prev_bbox2, bbox2)
 
             if iou1 == iou2 == 0:
-                self.tmp_track[name1][config.BBOX_KEY] = prev_bbox1
-                self.tmp_track[name2][config.BBOX_KEY] = prev_bbox2
-                self.trackers_list[name1].redefine_roi(prev_bbox1)
-                self.trackers_list[name2].redefine_roi(prev_bbox2)
-
+                self.correct_tracker(name1, prev_bbox1)
+                self.correct_tracker(name2, prev_bbox2)
             elif iou1 > iou2:
-                self.tmp_track[name2][config.BBOX_KEY] = prev_bbox2
-                self.trackers_list[name2].redefine_roi(prev_bbox2)
-            else:
-                self.tmp_track[name1][config.BBOX_KEY] = prev_bbox1
-                self.trackers_list[name1].redefine_roi(prev_bbox1)
+                self.correct_tracker(name2, prev_bbox2)
+            elif iou1 < iou2:
+                self.correct_tracker(name1, prev_bbox1)
         return
 
     def plot_overlay(self, issues):
@@ -244,7 +246,6 @@ class MainTracker:
     def check_faces(self):
         if not self.check_angular_order():
             logging.warning("angular order is broken")
-        corrected_bbox = {}
         _, _, rbboxes = detect_faces(self.cur_img, select_threshold=config.face_detection_trh)
 
         if len(rbboxes) == 0:
@@ -259,8 +260,9 @@ class MainTracker:
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
 
         self.plot_fd_elements(bbox_fd_list)
+        print("----------", self.tmp_track)
 
-        bbox_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list, corrected_bbox)
+        bbox_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list)
 
         bbox_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, corrected_bbox)
 
@@ -285,18 +287,31 @@ class MainTracker:
             roi = [xmin, ymin, xmax - xmin, ymax - ymin]
             self.visualizer.draw_bbox(roi, color=(150, 0, 0))
 
-    def correct_faces_by_iou(self, bbox_fd_list, corrected_bbox):
+    def correct_faces_by_iou(self, bbox_fd_list):
+        corrected_bbox = {}
         if len(bbox_fd_list) == 0:
             return [], []
         candidates = {}
+        match_count = {name: 0 for name in self.tmp_track}
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
             candidates[idx] = []
             for name, data in self.tmp_track.items():
                 bbox = data[config.BBOX_KEY]
                 iou = utils.bb_intersection_over_union(bbox, bbox_fd)
-                if iou > config.overlay_threshold and self.check_angular_position(name, bbox_fd):
+                if iou > config.correction_overlay_threshold:
                     candidates[idx].append((name, iou))
+                    match_count[name] += 1
+
+        for n, t in match_count.items():
+            if t > 1:
+                iou = 0
+                for idx, c_list in candidates.items():
+                    for i in c_list:
+                        if i[0] == n and i[1] > iou:
+                            iou = i[1]
+                for idx, c_list in candidates.items():
+                    candidates[idx] = [k for k in c_list if k[0] != n or k[1] == iou]
 
         for idx, c_list in candidates.items():
             if len(c_list) == 1:
@@ -308,6 +323,7 @@ class MainTracker:
                 self.correct_tracker(c[0], bbox_fd_list[idx])
                 corrected_bbox[c[0]] = {config.BBOX_KEY: bbox_fd_list[idx]}
                 indices.append(idx)
+                logging.info("Bbox {} assigned to {} by max roi".format(bbox_fd_list[idx], c[0]))
 
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
         return bbox_fd_list, corrected_bbox
@@ -319,7 +335,8 @@ class MainTracker:
         for idx, bbox_fd in enumerate(bbox_fd_list):
             for name, data in self.tmp_track.items():
                 bbox = data[config.BBOX_KEY]
-                if utils.bbox_in_roi(bbox, bbox_fd, self.cur_img) and self.check_angular_position(name, bbox_fd):
+                if name not in corrected_bbox and utils.bbox_in_roi(bbox, bbox_fd, self.cur_img) \
+                        and self.check_angular_position(name, bbox_fd):
                     self.correct_tracker(name, bbox_fd)
                     corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
                     indices.append(idx)
@@ -331,6 +348,7 @@ class MainTracker:
     def correct_faces_by_proximity(self, bbox_fd_list, corrected_bbox):
         if len(bbox_fd_list) == 0:
             return []
+
         indices = []
         corrected_bbox_angles_tmp = utils.get_bbox_dict_ang_pos(corrected_bbox, self.cur_img.shape)
         corrected_bbox_angles = {}
@@ -396,10 +414,10 @@ class MainTracker:
     def check_face(self, bbox, fd_bbox_list, name):
         corrected_bbox = []
         for bbox_fd in fd_bbox_list:
-            if utils.bb_intersection_over_union(bbox, bbox_fd) > config.overlay_threshold:
+            if utils.bb_intersection_over_union(bbox, bbox_fd) > config.correction_overlay_threshold:
                 return False, bbox_fd
             elif ((name2 != name and utils.bb_intersection_over_union(self.tmp_track[name2][config.BBOX_KEY],
-                                                                      bbox_fd) < config.overlay_threshold) for name2 in
+                                                                      bbox_fd) < config.correction_overlay_threshold) for name2 in
                   self.tmp_track):
                 corrected_bbox.append(bbox_fd)
 

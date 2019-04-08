@@ -1,7 +1,7 @@
 import os
 import logging
 
-logging_level = logging.INFO
+logging_level = logging.DEBUG
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_1.MP4")
 img_dir = os.path.join(data_dir, "img")
@@ -11,13 +11,14 @@ save_img = True
 # img_scale = 1
 max_frame = 50000
 
-
 angle_proximity_treshhold = 5
 checking_treshold = 30
 roi_ratio = 2
 roi_min_size = 80
 min_bbox_size = 30
-overlay_threshold = 0.4
+max_bbox_size = 150
+correction_overlay_threshold = 0.4
+tracking_overlay_threshold = 0.25
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"

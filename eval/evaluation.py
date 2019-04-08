@@ -10,6 +10,7 @@ class Evaluator:
         with open(data_file) as f:
             self.data = eval(f.read())
         self.perf = {}
+        print({name:{config.BBOX_KEY:self.data[name][config.BBOX_KEY][3515]} for name in self.data})
 
     def get_performances(self):
         right_count = {}
@@ -37,9 +38,12 @@ class Evaluator:
             "children_number": nb_children,
             "general_accuracy": general_count / (nb_frame*nb_children)
         }
+        sum = 0
         for name in right_count:
             self.perf[name] = right_count[name] / nb_frame
+            sum += self.perf[name]
 
+        self.perf["average_accuracy"] = sum/nb_children
 
 e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_verif30/171214_1.txt")
 e.get_performances()
