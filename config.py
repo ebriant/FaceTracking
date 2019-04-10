@@ -1,24 +1,22 @@
 import os
 import logging
 
-logging_level = logging.DEBUG
+logging_level = logging.INFO
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_1.MP4")
 img_dir = os.path.join(data_dir, "img")
-out_dir = os.path.join(data_dir, "output/171214_1_verif30")
+out_dir = os.path.join(data_dir, "output/171214_1_tracking_only")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
 max_frame = 50000
 
 angle_proximity_treshhold = 5
-checking_treshold = 30
-roi_ratio = 2
+checking_treshold = 3000000
+roi_ratio = 1.8
 roi_min_size = 80
-min_bbox_size = 30
+min_bbox_size = 35
 max_bbox_size = 150
-correction_overlay_threshold = 0.4
-tracking_overlay_threshold = 0.25
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
@@ -26,7 +24,9 @@ LANDMARKS_KEY= "landmarks"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
-face_detection_trh = 0.95
+face_detection_trh = 0.9
+correction_overlay_threshold = 0.4
+tracking_overlay_threshold = 0.2
 
 
 ##########################___DATASETS___#########################

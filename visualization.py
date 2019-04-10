@@ -73,7 +73,7 @@ class VisualizerOpencv:
         self.idx = frame_idx
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(self.img, dtype=np.uint8)
-        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.6, (255, 255, 255), 1)
 
     def save_img(self, out_dir):
         img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
@@ -84,7 +84,7 @@ class VisualizerOpencv:
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
         cv2.rectangle(self.img, p1, p2, color, **kwargs)
         p1 = (p1[0], p1[1] - 10)
-        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 1, color)
+        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_TRIPLEX, 1, color)
         return
 
     def plot_facial_features(self, landmarks_list):
@@ -96,7 +96,7 @@ class VisualizerOpencv:
         names_list = []
 
         for bbox in bboxes_list:
-            self.draw_bbox(bbox, color=self.BBOX_COLOR)
+            self.draw_bbox(bbox, color=self.BBOX_COLOR, thickness=2)
             # self.draw_bbox(data[config.BBOX_KEY], label=name, color=color)
 
         def mouse_position(event, x, y, flags, param):
@@ -105,7 +105,7 @@ class VisualizerOpencv:
                     if is_in_bbox(bbox, x, y):
                         name = input("Enter a name for the selected children: ")
                         names_list.append(name)
-                        self.draw_bbox(bbox, label=name, color=self.SELECTED_COLOR)
+                        self.draw_bbox(bbox, label=name, color=self.SELECTED_COLOR, thickness=2)
                         cv2.imshow(title, self.img)
                         selected_bbox.append(bbox)
 

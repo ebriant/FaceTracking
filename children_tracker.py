@@ -77,18 +77,17 @@ class MainTracker:
         self.cur_img = mpimg.imread(self.s_frames[0])
         self.cur_img = np.array(self.cur_img)
 
-        # _, _, rbboxes = detect_faces(img)
-        # bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
+        # _, _, rbboxes = detect_faces(self.cur_img)
+        # bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
         #
         # # Let the user choose which face to follow
-        # self.visualizer.prepare_img(img, 0)
+        # self.visualizer.prepare_img(self.cur_img, 0)
         # _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
         # for idx, name in enumerate(names_list):
         #     self.tmp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
         #     self.data[name] = {config.BBOX_KEY: []}
         # # print(self.data, self.tmp_track)
         # self.merge_temp()
-        # print(self.tmp_track)
 
         self.tmp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
                           'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
@@ -138,22 +137,22 @@ class MainTracker:
                     self.visualizer.prepare_img(self.cur_img, idx)
 
                     # Check the overlay every frame
-                    issues = self.check_overlay()
-                    if issues:
-                        self.correct_overlay(issues)
-                    if idx != last_frame - 1:
-                        self.visualizer.plt_img(self.tmp_track)
-                        self.visualizer.save_img(config.out_dir)
+                    # issues = self.check_overlay()
+                    # if issues:
+                    #     self.correct_overlay(issues)
 
-                        self.merge_temp()
+                    self.visualizer.plt_img(self.tmp_track)
+                    self.visualizer.save_img(config.out_dir)
 
-                # Check if the bbox is a face
-                frame_idx = last_frame
-                self.check_faces()
-                self.merge_temp()
-                # Visualization
-                self.visualizer.plt_img(self.tmp_track)
-                self.visualizer.save_img(config.out_dir)
+                    self.merge_temp()
+                    self.save_data()
+                # # Check if the bbox is a face
+                # frame_idx = last_frame
+                # self.check_faces()
+                # self.merge_temp()
+                # # Visualization
+                # self.visualizer.plt_img(self.tmp_track)
+                # self.visualizer.save_img(config.out_dir)
                 self.save_data()
             return
 
@@ -192,6 +191,13 @@ class MainTracker:
 
         return bbox_list, landmarks_list
 
+    def check_size(self):
+        for name, data in self.tmp_track.items():
+            bbox = data[config.BBOX_KEY]
+            if bbox[2] < config.min_bbox_size or bbox[3] < config.min_bbox_size:
+                prev_bbox = self.data[name][config.BBOX_KEY][-1]
+                self.correct_tracker(name, prev_bbox)
+
     def check_overlay(self):
         issues = []
         checked = []
@@ -199,8 +205,9 @@ class MainTracker:
             for name2, data2 in self.tmp_track.items():
                 if name != name2 and name2 not in checked and \
                         (utils.bb_intersection_over_union(data[config.BBOX_KEY], data2[
-                            config.BBOX_KEY]) > config.tracking_overlay_threshold or utils.bb_contained(data[config.BBOX_KEY],
-                                                                                               data2[config.BBOX_KEY])):
+                            config.BBOX_KEY]) > config.tracking_overlay_threshold or utils.bb_contained(
+                            data[config.BBOX_KEY],
+                            data2[config.BBOX_KEY])):
                     logging.warning("Overlay issue between {}:{} and {}:{}".format(name, data[config.BBOX_KEY], name2,
                                                                                    data2[config.BBOX_KEY]))
                     issues.append((name, name2))
@@ -255,12 +262,11 @@ class MainTracker:
 
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
-            if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
+            if bbox_fd[2] <= config.min_bbox_size or bbox_fd[3] <= config.min_bbox_size:
                 indices.append(idx)
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
 
         self.plot_fd_elements(bbox_fd_list)
-        print("----------", self.tmp_track)
 
         bbox_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list)
 
@@ -417,7 +423,8 @@ class MainTracker:
             if utils.bb_intersection_over_union(bbox, bbox_fd) > config.correction_overlay_threshold:
                 return False, bbox_fd
             elif ((name2 != name and utils.bb_intersection_over_union(self.tmp_track[name2][config.BBOX_KEY],
-                                                                      bbox_fd) < config.correction_overlay_threshold) for name2 in
+                                                                      bbox_fd) < config.correction_overlay_threshold)
+                  for name2 in
                   self.tmp_track):
                 corrected_bbox.append(bbox_fd)
 

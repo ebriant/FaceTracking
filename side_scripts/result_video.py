@@ -17,7 +17,7 @@ def to_video(dir, name):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-d', '--dir', type=str, default="data/output/171214_1",
+    parser.add_argument('-d', '--dir', type=str, default="data/output/171214_2_verif30",
                         help='the directory to put in video')
     parser.add_argument('-n', '--name', type=str, default="video.mp4",
                         help='the video name')

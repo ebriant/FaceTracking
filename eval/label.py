@@ -7,8 +7,8 @@ import os
 import config
 import cv2
 
-RATE = 30
-SCALING = 1.5
+RATE = 10
+SCALING = 1.2
 
 
 class Labeler:
@@ -45,6 +45,8 @@ class Labeler:
         with open(self.dump_file, "w+") as f:
             f.write(str(self.data))
 
+    def sort_data(self):
+        self.data = {key: self.data[key] for key in sorted(self.data)}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')

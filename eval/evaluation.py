@@ -1,7 +1,9 @@
 import os
 import config
 import utils
+import pprint
 
+FRAME_COUNT = 5000
 
 class Evaluator:
     def __init__(self, labels_file, data_file):
@@ -10,7 +12,7 @@ class Evaluator:
         with open(data_file) as f:
             self.data = eval(f.read())
         self.perf = {}
-        print({name:{config.BBOX_KEY:self.data[name][config.BBOX_KEY][3515]} for name in self.data})
+        # print({name:{config.BBOX_KEY:self.data[name][config.BBOX_KEY][4980]} for name in self.data})
 
     def get_performances(self):
         right_count = {}
@@ -23,7 +25,7 @@ class Evaluator:
         nb_frame = 0
         nb_children = len(right_count)
         for frame, frame_label in self.labels.items():
-            if frame > data_length:
+            if frame > data_length or frame > FRAME_COUNT:
                 break
             nb_frame += 1
             for name, label in frame_label.items():
@@ -40,11 +42,20 @@ class Evaluator:
         }
         sum = 0
         for name in right_count:
-            self.perf[name] = right_count[name] / nb_frame
-            sum += self.perf[name]
+            name_key = "child_"+name
+            self.perf[name_key] = right_count[name] / nb_frame
+            sum += self.perf[name_key]
 
         self.perf["average_accuracy"] = sum/nb_children
 
 e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_verif30/171214_1.txt")
 e.get_performances()
-print(e.perf)
+pprint.pprint(e.perf)
+
+e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_verif30/171214_2.txt")
+e.get_performances()
+
+e = Evaluator("data/labels/171214_2.txt", "data/output/171214_1_tracking_only/171214_1.txt")
+e.get_performances()
+
+pprint.pprint(e.perf)
