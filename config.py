@@ -19,6 +19,8 @@ min_bbox_size = 30
 max_bbox_size = 150
 correction_overlay_threshold = 0.4
 tracking_overlay_threshold = 0.25
+confidence_update_rate = 0.3
+conf_ud_rt = confidence_update_rate
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
@@ -27,6 +29,8 @@ BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
 face_detection_trh = 0.95
+
+label_frame_step = 10
 
 
 ##########################___DATASETS___#########################

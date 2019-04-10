@@ -7,7 +7,6 @@ import os
 import config
 import cv2
 
-RATE = 30
 SCALING = 1.5
 
 
@@ -25,7 +24,7 @@ class Labeler:
                 self.data = eval(f.read())
 
     def get_data(self):
-        for idx in range(0, len(self.s_frames), RATE):
+        for idx in range(0, len(self.s_frames), config.label_frame_step):
             if self.overwrite or not self.data_exists(idx):
                 img = mpimg.imread(self.s_frames[idx])
                 img = np.array(img)
@@ -45,6 +44,8 @@ class Labeler:
         with open(self.dump_file, "w+") as f:
             f.write(str(self.data))
 
+    def sort_data(self):
+        self.data = {key: self.data[key] for key in sorted(self.data)}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -56,3 +57,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     labeler = Labeler(args.names, args.overwrite)
     labeler.get_data()
+
+    # labeler.sort_data()
+    # labeler.save_data()

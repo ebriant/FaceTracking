@@ -230,3 +230,7 @@ def is_point_in_bbox_list(bbox_list, point):
             return True
     return False
 
+def is_between(start, end, mid):
+    end = end - start + 360 if (end - start) < 0 else end - start
+    mid = mid - start + 360 if (mid - start) < 0 else mid - start
+    return 0 < mid < end
