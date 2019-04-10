@@ -45,6 +45,6 @@ class Evaluator:
 
         self.perf["average_accuracy"] = sum/nb_children
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_verif30/171214_1.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1.txt")
 e.get_performances()
 print(e.perf)

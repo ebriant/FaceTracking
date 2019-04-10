@@ -62,6 +62,7 @@ class MainTracker:
         _, video_name = os.path.split(config.video_path)
         self.dump_file_path = os.path.join(config.out_dir, "{}.txt".format(video_name[:-4]))
 
+        self.confidence = {}
         self.data = {}
         self.tmp_track = {}
         self.latent_track = {}
@@ -99,6 +100,8 @@ class MainTracker:
                      'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
                 421, 230, 63, 39]]}}
 
+        for name in self.tmp_track:
+            self.confidence[name] = 1
         angles_dict = utils.get_bbox_dict_ang_pos(self.tmp_track, self.cur_img.shape)
         for name in sorted(angles_dict, key=angles_dict.get):
             self.angular_order.append(name)
@@ -322,6 +325,7 @@ class MainTracker:
                 c = max(c_list, key=lambda x: x[1])
                 self.correct_tracker(c[0], bbox_fd_list[idx])
                 corrected_bbox[c[0]] = {config.BBOX_KEY: bbox_fd_list[idx]}
+                self.confidence[c[0]] += 1
                 indices.append(idx)
                 logging.info("Bbox {} assigned to {} by max roi".format(bbox_fd_list[idx], c[0]))
 
