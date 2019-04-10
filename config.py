@@ -12,7 +12,7 @@ save_img = True
 max_frame = 50000
 
 angle_proximity_treshhold = 5
-checking_treshold = 3000000
+checking_treshold = 300
 roi_ratio = 1.8
 roi_min_size = 80
 min_bbox_size = 35

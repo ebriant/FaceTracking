@@ -3,7 +3,7 @@ import config
 import utils
 import pprint
 
-FRAME_COUNT = 5000
+FRAME_COUNT = 1400
 
 class Evaluator:
     def __init__(self, labels_file, data_file):
@@ -54,8 +54,9 @@ pprint.pprint(e.perf)
 
 e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_verif30/171214_2.txt")
 e.get_performances()
+pprint.pprint(e.perf)
 
-e = Evaluator("data/labels/171214_2.txt", "data/output/171214_1_tracking_only/171214_1.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking_only/171214_1.txt")
 e.get_performances()
 
 pprint.pprint(e.perf)

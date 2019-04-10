@@ -145,9 +145,10 @@ class MainTracker:
                     self.visualizer.save_img(config.out_dir)
 
                     self.merge_temp()
-                    self.save_data()
+
+                self.save_data()
                 # # Check if the bbox is a face
-                # frame_idx = last_frame
+                frame_idx = last_frame
                 # self.check_faces()
                 # self.merge_temp()
                 # # Visualization
