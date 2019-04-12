@@ -120,7 +120,7 @@ class MainTracker:
             frame_idx = START_FRAME
             while frame_idx < len(self.s_frames):
                 self.tmp_track = {}
-                last_frame = min(frame_idx + config.checking_treshold, len(self.s_frames))
+                last_frame = min(frame_idx + config.checking_rate, len(self.s_frames))
 
                 for idx in range(frame_idx, last_frame):
                     logging.info("Processing frame {}".format(idx))

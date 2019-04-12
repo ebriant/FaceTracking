@@ -49,8 +49,9 @@ class Labeler:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-n', '--names', type=list, default=["a", "b", "c", "d", "e", "f"],
-                        help='the video name')
+    # parser.add_argument('-n', '--names', type=list, default=["a", "b", "c", "d", "e", "f"])
+
+    parser.add_argument('-n', '--names', type=list, default=["g", "h", "i", "j", "k"])
     parser.add_argument('-o', '--overwrite', action='store_true', default=False,
                         help='the video name')
 

@@ -1,4 +1,3 @@
-import os
 import config
 import utils
 import pprint
@@ -48,18 +47,22 @@ class Evaluator:
 
         self.perf["average_accuracy"] = sum/nb_children
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_verif30/171214_1.txt")
-e.get_performances()
-pprint.pprint(e.perf)
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_verif45/171214_1.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_step30.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 
-e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_verif30/171214_2.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_step45.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking_only/171214_1.txt")
+e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_tracking.txt")
 e.get_performances()
-
 pprint.pprint(e.perf)
+
+# e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_verif30/171214_2.txt")
+# e.get_performances()
+# pprint.pprint(e.perf)
+#
+# e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking_only/171214_1.txt")
+# e.get_performances()
+# pprint.pprint(e.perf)
