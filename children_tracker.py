@@ -100,6 +100,8 @@ class MainTracker:
                      'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
                 421, 230, 63, 39]]}}
 
+        # {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]}, 'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]}, 'k': {'bbox': [361, 240, 100, 77]}} {'g': {'bbox': [[124, 245, 63, 49]]}, 'h': {'bbox': [[176, 431, 63, 60]]}, 'i': {'bbox': [[315, 493, 17, 48]]}, 'j': {'bbox': [[403, 439, 47, 51]]}, 'k': {'bbox': [[361, 240, 100, 77]]}}
+
         for name in self.tmp_track:
             self.confidence[name] = 1
         angles_dict = utils.get_bbox_dict_ang_pos(self.tmp_track, self.cur_img.shape)
@@ -190,6 +192,13 @@ class MainTracker:
                 self.visualizer.plt_img(cur_frame, [bbox])
 
         return bbox_list, landmarks_list
+
+    def check_size(self):
+        for name, data in self.tmp_track.items():
+            bbox = data[config.BBOX_KEY]
+            if bbox[2] < config.min_bbox_size or bbox[3] < config.min_bbox_size:
+                prev_bbox = self.data[name][config.BBOX_KEY][-1]
+                self.correct_tracker(name, prev_bbox)
 
     def check_overlay(self):
         issues = []
