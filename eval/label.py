@@ -7,7 +7,7 @@ import os
 import config
 import cv2
 
-SCALING = 1.5
+SCALING = 1.2
 
 
 class Labeler:
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     labeler = Labeler(args.names, args.overwrite)
-    labeler.get_data()
 
-    # labeler.sort_data()
-    # labeler.save_data()
+    labeler.sort_data()
+    labeler.save_data()
+    labeler.get_data()

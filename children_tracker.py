@@ -379,7 +379,6 @@ class MainTracker:
         bbox_fd_angles = [utils.get_bbox_angular_pos(bbox_fd, self.cur_img.shape) for bbox_fd in bbox_fd_list]
 
         tmp_order = {}
-
         l = len(verified_names)
         for idx, angle in enumerate(bbox_fd_angles):
             for i in range(l):

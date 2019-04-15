@@ -3,6 +3,7 @@ import utils
 import pprint
 
 FRAME_COUNT = 10000
+DECIMAL_PRECISION = 4
 
 class Evaluator:
     def __init__(self, labels_file, data_file):
@@ -21,6 +22,8 @@ class Evaluator:
         data_length = len(next(iter(self.data.values()))[config.BBOX_KEY])
         general_count = 0
 
+        print(data_length, len(self.labels))
+
         nb_frame = 0
         nb_children = len(right_count)
         for frame, frame_label in self.labels.items():
@@ -37,32 +40,30 @@ class Evaluator:
         self.perf = {
             "frame_number": nb_frame,
             "children_number": nb_children,
-            "general_accuracy": general_count / (nb_frame*nb_children)
+            "general_accuracy": round(general_count / (nb_frame * nb_children), DECIMAL_PRECISION)
         }
+
         sum = 0
         for name in right_count:
-            name_key = "child_"+name
-            self.perf[name_key] = right_count[name] / nb_frame
+            name_key = "child_" + name
+            self.perf[name_key] = round(right_count[name] / nb_frame, DECIMAL_PRECISION)
             sum += self.perf[name_key]
 
-        self.perf["average_accuracy"] = sum/nb_children
+        self.perf["average_accuracy"] = round(sum / nb_children, DECIMAL_PRECISION)
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_step30.txt")
+
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_step45.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking.txt")
+e.get_performances()
+pprint.pprint(e.perf)
+
+e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 
 e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_tracking.txt")
 e.get_performances()
 pprint.pprint(e.perf)
-
-# e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_verif30/171214_2.txt")
-# e.get_performances()
-# pprint.pprint(e.perf)
-#
-# e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking_only/171214_1.txt")
-# e.get_performances()
-# pprint.pprint(e.perf)
