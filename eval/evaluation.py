@@ -2,7 +2,7 @@ import config
 import utils
 import pprint
 
-FRAME_COUNT = 10000
+FRAME_COUNT = 9999
 DECIMAL_PRECISION = 4
 
 class Evaluator:

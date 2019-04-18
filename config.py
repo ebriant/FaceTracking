@@ -4,15 +4,15 @@ import logging
 logging_level = logging.INFO
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_2.MP4")
-out_dir = os.path.join(data_dir, "output/171214_2_verif45")
+out_dir = os.path.join(data_dir, "output/171214_2_vr30")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
-max_frame = 10000
+max_frame = 12000
 
 angle_proximity_treshhold = 5
-checking_rate = 45
+checking_rate = 30
 roi_ratio = 1.8
 roi_min_size = 80
 min_bbox_size = 30
@@ -28,7 +28,9 @@ LANDMARKS_KEY= "landmarks"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
-face_detection_trh = 0.95
+face_detection_iou_trh = 0.6
+face_detection_roi_trh = 0.8
+face_detection_angle_trh = 0.9
 
 label_frame_step = 10
 

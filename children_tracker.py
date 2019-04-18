@@ -91,16 +91,20 @@ class MainTracker:
         # self.merge_temp()
         # print(self.tmp_track)
 
-        self.tmp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
-                          'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
-                          'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
-        self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]}, 'c': {'bbox': [[94,
-                                                                                                               296, 77,
-                                                                                                               98]]},
-                     'd': {'bbox': [[317, 472, 48, 63]]}, 'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[
-                421, 230, 63, 39]]}}
+        # self.tmp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
+        #                   'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
+        #                   'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
+        # self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]},
+        #              'c': {'bbox': [[94, 296, 77, 98]]}, 'd': {'bbox': [[317, 472, 48, 63]]},
+        #              'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[421, 230, 63, 39]]}}
 
-        # {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]}, 'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]}, 'k': {'bbox': [361, 240, 100, 77]}} {'g': {'bbox': [[124, 245, 63, 49]]}, 'h': {'bbox': [[176, 431, 63, 60]]}, 'i': {'bbox': [[315, 493, 17, 48]]}, 'j': {'bbox': [[403, 439, 47, 51]]}, 'k': {'bbox': [[361, 240, 100, 77]]}}
+        self.tmp_track ={'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
+                         'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
+                         'k': {'bbox': [361, 240, 100, 77]}}
+
+        self.data = {'g': {'bbox': [[124, 245, 63, 49]]}, 'h': {'bbox': [[176, 431, 63, 60]]},
+                     'i': {'bbox': [[315, 493, 17, 48]]}, 'j': {'bbox': [[403, 439, 47, 51]]},
+                     'k': {'bbox': [[361, 240, 100, 77]]}}
 
         for name in self.tmp_track:
             self.confidence[name] = 1
@@ -111,13 +115,16 @@ class MainTracker:
         # Run the tracking process
         self.track_all()
 
+    def set_up_tracker(self, model, name, bbox):
+        tracker = Tracker(model)
+        tracker.initialize(self.s_frames[1], bbox)
+        self.trackers_list[name] = tracker
+
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
             model = Model(sess)
             for name, data in self.data.items():
-                tracker = Tracker(model)
-                tracker.initialize(self.s_frames[1], data[config.BBOX_KEY][0])
-                self.trackers_list[name] = tracker
+                self.set_up_tracker(model, name, data[config.BBOX_KEY][0])
 
             frame_idx = START_FRAME
             while frame_idx < len(self.s_frames):
@@ -127,7 +134,7 @@ class MainTracker:
                 for idx in range(frame_idx, last_frame):
                     logging.info("Processing frame {}".format(idx))
                     for name, tracker in self.trackers_list.items():
-                        tracker.idx = idx
+                        tracker.idx += 1
                         bbox, cur_frame = tracker.track(self.s_frames[idx])
                         bbox = [int(i) for i in bbox]
                         self.tmp_track[name] = {config.BBOX_KEY: bbox}
@@ -255,34 +262,37 @@ class MainTracker:
     def check_faces(self):
         if not self.check_angular_order():
             logging.warning("angular order is broken")
-        _, _, rbboxes = detect_faces(self.cur_img, select_threshold=config.face_detection_trh)
+        _, score_fd_list, bbox_fd_list = detect_faces(self.cur_img, select_threshold=config.face_detection_iou_trh)
 
-        if len(rbboxes) == 0:
+        if len(bbox_fd_list) == 0:
             return
 
-        bbox_fd_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
+        bbox_fd_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in bbox_fd_list]
+
 
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
             if bbox_fd[2] < config.min_bbox_size or bbox_fd[3] < config.min_bbox_size:
                 indices.append(idx)
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
+        score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
 
-        self.plot_fd_elements(bbox_fd_list)
-        bbox_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list)
-        bbox_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, corrected_bbox)
-        bbox_fd_list = self.correct_faces_by_proximity(bbox_fd_list, corrected_bbox)
+        self.plot_fd_elements(bbox_fd_list, score_fd_list)
+        bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list, score_fd_list)
+        bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, score_fd_list,
+                                                                                corrected_bbox)
+        bbox_fd_list, score_fd_list = self.correct_faces_by_proximity(bbox_fd_list, score_fd_list, corrected_bbox)
 
         if len(bbox_fd_list) > 0:
             logging.warning("Detected faces unused")
 
         self.latent_track = self.tmp_track.copy()
 
-    def plot_fd_elements(self, bbox_fd_list):
+    def plot_fd_elements(self, bbox_fd_list, score_fd_list):
         # Draw detected faces
-        for bbox_fd in bbox_fd_list:
+        for idx, bbox_fd in enumerate(bbox_fd_list):
             vizu = [bbox_fd[0] - 2, bbox_fd[1] - 2, bbox_fd[2] + 4, bbox_fd[3] + 4]
-            self.visualizer.draw_bbox(vizu, color=(0, 125, 255), thickness=2)
+            self.visualizer.draw_bbox(vizu, label=round(score_fd_list[idx], 3), color=(0, 125, 255), thickness=2)
             self.visualizer.plt_img({})
 
         # Draw ROI
@@ -292,7 +302,7 @@ class MainTracker:
             roi = [xmin, ymin, xmax - xmin, ymax - ymin]
             self.visualizer.draw_bbox(roi, color=(150, 0, 0))
 
-    def correct_faces_by_iou(self, bbox_fd_list):
+    def correct_faces_by_iou(self, bbox_fd_list, score_fd_list):
         corrected_bbox = {}
         if len(bbox_fd_list) == 0:
             return [], []
@@ -333,11 +343,17 @@ class MainTracker:
                 logging.info("Bbox {} assigned to {} by max roi".format(bbox_fd_list[idx], c[0]))
 
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
-        return bbox_fd_list, corrected_bbox
+        score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
+        return bbox_fd_list, score_fd_list, corrected_bbox
 
-    def correct_faces_by_roi(self, bbox_fd_list, corrected_bbox):
+    def correct_faces_by_roi(self, bbox_fd_list, score_fd_list, corrected_bbox):
         if len(bbox_fd_list) == 0:
-            return [], []
+            return [], [], []
+
+        bbox_fd_list = [bbox_fd_list[idx] for idx, score in enumerate(score_fd_list) if
+                        score > config.face_detection_roi_trh]
+        score_fd_list = [score for score in score_fd_list if score > config.face_detection_roi_trh]
+
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
             for name, data in self.tmp_track.items():
@@ -351,11 +367,16 @@ class MainTracker:
                     break
 
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
-        return bbox_fd_list, corrected_bbox
+        score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
+        return bbox_fd_list, score_fd_list, corrected_bbox
 
-    def correct_faces_by_proximity(self, bbox_fd_list, corrected_bbox):
+    def correct_faces_by_proximity(self, bbox_fd_list, score_fd_list, corrected_bbox):
         if len(bbox_fd_list) == 0:
-            return []
+            return [], []
+
+        bbox_fd_list = [bbox_fd_list[idx] for idx, score in enumerate(score_fd_list) if
+                        score > config.face_detection_angle_trh]
+        score_fd_list = [score for score in score_fd_list if score > config.face_detection_angle_trh]
 
         indices = []
 
@@ -371,10 +392,7 @@ class MainTracker:
         not_corrected_bbox_angles = {k: utils.get_bbox_angular_pos(v[config.BBOX_KEY], self.cur_img.shape) for k, v in
                                      self.tmp_track.items() if k not in corrected_bbox}
         if not not_corrected_bbox_angles:
-            return []
-
-
-
+            return [], []
 
         bbox_fd_angles = [utils.get_bbox_angular_pos(bbox_fd, self.cur_img.shape) for bbox_fd in bbox_fd_list]
 
@@ -387,12 +405,6 @@ class MainTracker:
                                     angle):
                     tmp_order[idx] = (verified_names[i], verified_names[(i + 1) % l])
                     break
-
-
-
-
-
-
 
         for idx, bbox_fd in enumerate(bbox_fd_list):
             angle = utils.get_bbox_angular_pos(bbox_fd, self.cur_img.shape)
@@ -434,7 +446,8 @@ class MainTracker:
                     logging.info("Assigned {} to children {} by closest angular position".format(bbox_fd, name))
 
         bbox_fd_list = [i for j, i in enumerate(bbox_fd_list) if j not in indices]
-        return bbox_fd_list
+        score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
+        return bbox_fd_list, score_fd_list
 
     def check_angle_proximity(self, angle, angles_dict):
         for name, angle2 in angles_dict.items():
