@@ -75,6 +75,25 @@ class MainTracker:
         with open(self.dump_file_path, "w+") as f:
             f.write(str(self.data))
 
+    def face_detection(self):
+        self.data = {}
+        for idx in range(0, 10001, 10):
+            self.frame_number = idx
+            logging.info("Processing frame {}".format(idx))
+            self.cur_img = mpimg.imread(self.s_frames[idx])
+            self.cur_img = np.array(self.cur_img)
+
+            _, rscores, rbboxes = detect_faces(self.cur_img, select_threshold=0.5)
+            bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
+            if len(bboxes_list)>6:
+
+                top_6_idx = np.argsort(rscores)[-6:]
+                bbox_fd_list = [i for j, i in enumerate(bboxes_list) if j in top_6_idx]
+
+            self.data[idx] = bboxes_list
+
+            self.save_data()
+
     def start_tracking(self):
         # # Detect faces in the first image
         self.cur_img = mpimg.imread(self.s_frames[0])
@@ -508,4 +527,4 @@ def detect_faces(img, select_threshold=0.35, nms_threshold=0.1):
 
 if __name__ == '__main__':
     main_tracker = MainTracker()
-    main_tracker.start_tracking()
+    main_tracker.face_detection()

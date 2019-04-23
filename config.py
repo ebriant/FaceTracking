@@ -3,8 +3,8 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
-video_path = os.path.join(data_dir, "videos/171214_1.MP4")
-out_dir = os.path.join(data_dir, "output/171214_1_overlay_only")
+video_path = os.path.join(data_dir, "videos/171214_2.MP4")
+out_dir = os.path.join(data_dir, "output/171214_2_face_detection")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True

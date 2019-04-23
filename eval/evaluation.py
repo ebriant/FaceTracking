@@ -51,6 +51,31 @@ class Evaluator:
 
         self.perf["average_accuracy"] = round(sum / nb_children, DECIMAL_PRECISION)
 
+    def get_performances_fd(self):
+        right_count = {}
+        for name in next(iter(self.labels.values())):
+            right_count[name] = 0
+
+        data_length = len(self.data)
+        general_count = 0
+
+        print(data_length, len(self.labels))
+
+        nb_frame = 0
+        nb_children = len(right_count)
+        for frame, frame_label in self.labels.items():
+            if nb_frame >= data_length or frame > FRAME_COUNT:
+                break
+            nb_frame += 1
+            for name, label in frame_label.items():
+                if utils.is_point_in_bbox_list(self.data[frame], label):
+                    general_count += 1
+
+        self.perf = {
+            "frame_number": nb_frame,
+            "general_accuracy": round(general_count / (nb_frame * nb_children), DECIMAL_PRECISION)
+        }
+
 
 e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1.txt")
 e.get_performances()
@@ -70,4 +95,12 @@ pprint.pprint(e.perf)
 
 e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_tracking.txt")
 e.get_performances()
+pprint.pprint(e.perf)
+
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_fd.txt")
+e.get_performances_fd()
+pprint.pprint(e.perf)
+
+e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2_fd.txt")
+e.get_performances_fd()
 pprint.pprint(e.perf)
