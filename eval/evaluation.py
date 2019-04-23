@@ -60,6 +60,10 @@ e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_tracking.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_overlay.txt")
+e.get_performances()
+pprint.pprint(e.perf)
+
 e = Evaluator("data/labels/171214_2.txt", "data/output/171214_2.txt")
 e.get_performances()
 pprint.pprint(e.perf)

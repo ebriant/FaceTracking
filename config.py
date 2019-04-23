@@ -3,13 +3,21 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
-video_path = os.path.join(data_dir, "videos/171214_2.MP4")
-out_dir = os.path.join(data_dir, "output/171214_2_vr30")
+video_path = os.path.join(data_dir, "videos/171214_1.MP4")
+out_dir = os.path.join(data_dir, "output/171214_1_overlay_only")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
 max_frame = 12000
+
+init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
+        'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
+        'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
+
+# init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
+#         'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
+#         'k': {'bbox': [361, 240, 100, 77]}}
 
 angle_proximity_treshhold = 5
 checking_rate = 30
@@ -24,7 +32,7 @@ conf_ud_rt = confidence_update_rate
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
-LANDMARKS_KEY= "landmarks"
+LANDMARKS_KEY = "landmarks"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
@@ -34,19 +42,17 @@ face_detection_angle_trh = 0.9
 
 label_frame_step = 10
 
-
 ##########################___DATASETS___#########################
 
 wider = "C:/Users/Horio/Documents/Datasets/face_detection/WIDER"
 
-
 ##########################____MEMTRACK____#############################
-#================= data preprocessing ==========================
+# ================= data preprocessing ==========================
 home_path = 'C:/Users/Horio/Documents/PotatoNet/trackers/memtrack/Home'
-root_path = home_path+'/Data/ILSVRC'
-tfrecords_path = home_path+'/Data/ILSVRC-TF'
-otb_data_dir = home_path+'/Data/Benchmark/OTB'
-data_dir = home_path+'/Data'
+root_path = home_path + '/Data/ILSVRC'
+tfrecords_path = home_path + '/Data/ILSVRC-TF'
+otb_data_dir = home_path + '/Data/Benchmark/OTB'
+data_dir = home_path + '/Data'
 data_path_t = os.path.join(root_path, 'Data/VID/train')
 data_path_v = os.path.join(root_path, 'Data/VID/val')
 anno_path_t = os.path.join(root_path, 'Annotations/VID/train/')
@@ -63,7 +69,7 @@ min_frames = 50
 num_threads_t = 16
 num_threads_v = 2
 
-patch_size = 255+2*8
+patch_size = 255 + 2 * 8
 
 fix_aspect = True
 enlarge_patch = True
@@ -72,7 +78,7 @@ if fix_aspect:
 else:
     z_scale = 2
 
-#========================== data input ============================
+# ========================== data input ============================
 min_queue_examples = 500
 num_readers = 2
 num_preprocess_threads = 8
@@ -89,11 +95,11 @@ max_translate_x = 4
 max_strech_z = 0.1
 max_translate_z = 8
 
-label_type= 0 # 0: overlap: 1 dist
+label_type = 0  # 0: overlap: 1 dist
 overlap_thres = 0.7
 dist_thre = 2
 
-#========================== Memnet ===============================
+# ========================== Memnet ===============================
 hidden_size = 512
 memory_size = 8
 slot_size = [6, 6, 256]
@@ -106,8 +112,7 @@ use_attention_read = False
 use_fc_key = False
 key_dim = 256
 
-
-#========================== train =================================
+# ========================== train =================================
 batch_size = 8
 time_step = 16
 
@@ -126,13 +131,13 @@ validate_step = 5000
 max_iterations = 100000
 summary_display_step = 8
 
-#========================== evaluation ==================================
+# ========================== evaluation ==================================
 batch_size_eval = 2
 time_step_eval = 48
 num_example_epoch_eval = 1073
-max_iterations_eval = num_example_epoch_eval//batch_size_eval
+max_iterations_eval = num_example_epoch_eval // batch_size_eval
 
-#========================== tracking ====================================
+# ========================== tracking ====================================
 num_scale = 3
 scale_multipler = 1.05
 scale_penalty = 0.97
@@ -146,4 +151,4 @@ stride = 8
 avg_num = 1
 
 is_save = False
-save_path = home_path+'/snapshots'
+save_path = home_path + '/snapshots'

@@ -51,6 +51,7 @@ START_FRAME = 1
 
 class MainTracker:
     def __init__(self):
+        self.model = None
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
         self.trackers_list = {}
@@ -68,6 +69,7 @@ class MainTracker:
         self.latent_track = {}
         self.angular_order = []
         self.cur_img = None
+        self.frame_number = 0
 
     def save_data(self):
         with open(self.dump_file_path, "w+") as f:
@@ -78,33 +80,24 @@ class MainTracker:
         self.cur_img = mpimg.imread(self.s_frames[0])
         self.cur_img = np.array(self.cur_img)
 
-        # _, _, rbboxes = detect_faces(img)
-        # bboxes_list = [utils.reformat_bbox_coord(bbox, img.shape[0]) for bbox in rbboxes]
-        #
-        # # Let the user choose which face to follow
-        # self.visualizer.prepare_img(img, 0)
-        # _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
-        # for idx, name in enumerate(names_list):
-        #     self.tmp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
-        #     self.data[name] = {config.BBOX_KEY: []}
-        # # print(self.data, self.tmp_track)
-        # self.merge_temp()
-        # print(self.tmp_track)
+        if config.init is None:
+            _, _, rbboxes = detect_faces(self.cur_img)
+            bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
 
-        # self.tmp_track = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
-        #                   'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
-        #                   'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
-        # self.data = {'a': {'bbox': [[300, 183, 57, 49]]}, 'b': {'bbox': [[139, 201, 53, 45]]},
-        #              'c': {'bbox': [[94, 296, 77, 98]]}, 'd': {'bbox': [[317, 472, 48, 63]]},
-        #              'e': {'bbox': [[427, 443, 61, 43]]}, 'f': {'bbox': [[421, 230, 63, 39]]}}
+            # Let the user choose which faces to follow
+            self.visualizer.prepare_img(self.cur_img, 0)
+            _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
+            for idx, name in enumerate(names_list):
+                self.tmp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
+                self.data[name] = {config.BBOX_KEY: []}
+            self.merge_temp()
+            print(self.tmp_track)
 
-        self.tmp_track ={'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
-                         'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
-                         'k': {'bbox': [361, 240, 100, 77]}}
-
-        self.data = {'g': {'bbox': [[124, 245, 63, 49]]}, 'h': {'bbox': [[176, 431, 63, 60]]},
-                     'i': {'bbox': [[315, 493, 17, 48]]}, 'j': {'bbox': [[403, 439, 47, 51]]},
-                     'k': {'bbox': [[361, 240, 100, 77]]}}
+        else:
+            self.tmp_track = config.init
+            for name in self.tmp_track:
+                self.data[name] = {config.BBOX_KEY: []}
+            self.merge_temp()
 
         for name in self.tmp_track:
             self.confidence[name] = 1
@@ -115,16 +108,16 @@ class MainTracker:
         # Run the tracking process
         self.track_all()
 
-    def set_up_tracker(self, model, name, bbox):
-        tracker = Tracker(model)
-        tracker.initialize(self.s_frames[1], bbox)
+    def set_up_tracker(self, name, bbox):
+        tracker = Tracker(self.model)
+        tracker.initialize(self.s_frames[self.frame_number], bbox)
         self.trackers_list[name] = tracker
 
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-            model = Model(sess)
+            self.model = Model(sess)
             for name, data in self.data.items():
-                self.set_up_tracker(model, name, data[config.BBOX_KEY][0])
+                self.set_up_tracker(name, data[config.BBOX_KEY][0])
 
             frame_idx = START_FRAME
             while frame_idx < len(self.s_frames):
@@ -132,6 +125,7 @@ class MainTracker:
                 last_frame = min(frame_idx + config.checking_rate, len(self.s_frames))
 
                 for idx in range(frame_idx, last_frame):
+                    self.frame_number = idx
                     logging.info("Processing frame {}".format(idx))
                     for name, tracker in self.trackers_list.items():
                         tracker.idx += 1
@@ -154,7 +148,7 @@ class MainTracker:
 
                 # Check if the bbox is a face
                 frame_idx = last_frame
-                self.check_faces()
+                # self.check_faces()
                 self.merge_temp()
                 # Visualization
                 self.visualizer.plt_img(self.tmp_track)
@@ -168,37 +162,6 @@ class MainTracker:
     def merge_temp(self):
         for name, data in self.tmp_track.items():
             self.data[name][config.BBOX_KEY].append(list(self.tmp_track[name][config.BBOX_KEY]))
-
-    def track(self, tracker, first_frame=1, last_frame=1):
-        """
-        Tracks a single face from first_frame to last_frame
-        :param tracker:
-        :param first_frame:
-        :param last_frame:
-        :return:
-        """
-        landmarks_list = []
-        bbox_list = []
-        with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
-            for idx in range(first_frame, last_frame):
-                tracker.idx = idx
-                bbox, cur_frame = tracker.track(self.s_frames[idx])
-                bbox_list.append([int(i) for i in bbox])
-                cur_frame = cur_frame * 255
-
-                landmarks = None
-
-                # img_cropped_fd, crop_coord_fd = utils.crop_roi(bbox, cur_frame, 1.4)
-                # face_rot, angle = utils.rotate_roi(img_cropped_fd, bbox, cur_frame.shape[0])
-                # landmarks = self.fa.get_landmarks(face_rot)
-                # if landmarks is not None :
-                #     landmarks = utils.landmarks_img_coord(utils.rotate_landmarks(landmarks[-1], face_rot, -angle), crop_coord_fd)
-                # landmarks_list.append(landmarks)
-
-                # visualization
-                self.visualizer.plt_img(cur_frame, [bbox])
-
-        return bbox_list, landmarks_list
 
     def check_size(self):
         for name, data in self.tmp_track.items():
@@ -268,7 +231,6 @@ class MainTracker:
             return
 
         bbox_fd_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in bbox_fd_list]
-
 
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
@@ -360,7 +322,7 @@ class MainTracker:
                 bbox = data[config.BBOX_KEY]
                 if name not in corrected_bbox and utils.bbox_in_roi(bbox, bbox_fd, self.cur_img) \
                         and self.check_angular_position(name, bbox_fd):
-                    self.correct_tracker(name, bbox_fd)
+                    self.correct_tracker(name, bbox_fd, True)
                     self.update_confidence(name, 0.5)
                     corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
                     indices.append(idx)
@@ -441,7 +403,7 @@ class MainTracker:
                         name = key
 
                 if name is not None:
-                    self.correct_tracker(name, bbox_fd)
+                    self.correct_tracker(name, bbox_fd, True)
                     indices.append(idx)
                     logging.info("Assigned {} to children {} by closest angular position".format(bbox_fd, name))
 
@@ -456,9 +418,12 @@ class MainTracker:
                 return False
         return True
 
-    def correct_tracker(self, name, bbox):
+    def correct_tracker(self, name, bbox, replace=False):
         self.tmp_track[name][config.BBOX_KEY] = bbox
-        self.trackers_list[name].redefine_roi(bbox)
+        if replace:
+            self.set_up_tracker(name, bbox)
+        else:
+            self.trackers_list[name].redefine_roi(bbox)
 
     def check_face(self, bbox, fd_bbox_list, name):
         corrected_bbox = []
