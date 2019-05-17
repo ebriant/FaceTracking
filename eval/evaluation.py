@@ -52,7 +52,7 @@ class Evaluator:
         self.perf["average_accuracy"] = round(sum / nb_children, DECIMAL_PRECISION)
 
 
-e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1.txt")
+e = Evaluator("data/labels/171214_1.txt", "data/output/171214_1_new.txt")
 e.get_performances()
 pprint.pprint(e.perf)
 

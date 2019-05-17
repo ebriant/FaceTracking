@@ -193,11 +193,11 @@ def get_bbox_dict_ang_pos(bbox_dict, img_shape):
     angles_dict = {}
     for name, data in bbox_dict.items():
         bbox = data[config.BBOX_KEY]
-        angles_dict[name] = get_bbox_angular_pos(bbox, img_shape)
+        angles_dict[name] = get_angle(bbox, img_shape)
     return angles_dict
 
 
-def get_bbox_angular_pos(bbox, img_shape):
+def get_angle(bbox, img_shape):
     x_c, y_c = img_shape[0] // 2, img_shape[1] // 2
     x = bbox[0] + bbox[2] - x_c
     y = img_shape[1] - (bbox[1] + bbox[3]) - y_c
@@ -205,8 +205,8 @@ def get_bbox_angular_pos(bbox, img_shape):
 
 
 def get_angular_dist(bbox1, bbox2, img_shape):
-    angles1 = get_bbox_angular_pos(bbox1, img_shape)
-    angles2 = get_bbox_angular_pos(bbox2, img_shape)
+    angles1 = get_angle(bbox1, img_shape)
+    angles2 = get_angle(bbox2, img_shape)
     dist = abs(angles1-angles2)
     return dist
 

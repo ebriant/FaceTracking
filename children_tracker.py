@@ -148,7 +148,7 @@ class MainTracker:
 
                 # Check if the bbox is a face
                 frame_idx = last_frame
-                # self.check_faces()
+                self.check_faces()
                 self.merge_temp()
                 # Visualization
                 self.visualizer.plt_img(self.tmp_track)
@@ -243,7 +243,7 @@ class MainTracker:
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list, score_fd_list)
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, score_fd_list,
                                                                                 corrected_bbox)
-        bbox_fd_list, score_fd_list = self.correct_faces_by_proximity(bbox_fd_list, score_fd_list, corrected_bbox)
+        bbox_fd_list, score_fd_list = self.correct_faces_by_order_association(bbox_fd_list, score_fd_list, corrected_bbox)
 
         if len(bbox_fd_list) > 0:
             logging.warning("Detected faces unused")
@@ -267,7 +267,7 @@ class MainTracker:
     def correct_faces_by_iou(self, bbox_fd_list, score_fd_list):
         corrected_bbox = {}
         if len(bbox_fd_list) == 0:
-            return [], []
+            return [], [], []
         candidates = {}
         match_count = {name: 0 for name in self.tmp_track}
         indices = []
@@ -351,12 +351,12 @@ class MainTracker:
                 corrected_bbox_angles[name] = corrected_bbox_angles_tmp[name]
                 verified_names.append(name)
 
-        not_corrected_bbox_angles = {k: utils.get_bbox_angular_pos(v[config.BBOX_KEY], self.cur_img.shape) for k, v in
+        not_corrected_bbox_angles = {k: utils.get_angle(v[config.BBOX_KEY], self.cur_img.shape) for k, v in
                                      self.tmp_track.items() if k not in corrected_bbox}
         if not not_corrected_bbox_angles:
             return [], []
 
-        bbox_fd_angles = [utils.get_bbox_angular_pos(bbox_fd, self.cur_img.shape) for bbox_fd in bbox_fd_list]
+        bbox_fd_angles = [utils.get_angle(bbox_fd, self.cur_img.shape) for bbox_fd in bbox_fd_list]
 
         tmp_order = {}
         l = len(verified_names)
@@ -369,7 +369,7 @@ class MainTracker:
                     break
 
         for idx, bbox_fd in enumerate(bbox_fd_list):
-            angle = utils.get_bbox_angular_pos(bbox_fd, self.cur_img.shape)
+            angle = utils.get_angle(bbox_fd, self.cur_img.shape)
             if corrected_bbox_angles:
                 prev_id, next_id = None, None
                 for name, value in corrected_bbox_angles.items():
@@ -411,6 +411,51 @@ class MainTracker:
         score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
         return bbox_fd_list, score_fd_list
 
+    def correct_faces_by_order_association(self, bbox_fd_list, score_fd_list, corrected_bbox):
+        bbox_fd_list = [bbox_fd_list[idx] for idx, score in enumerate(score_fd_list) if
+                        score > config.face_detection_angle_trh]
+        score_fd_list = [score for score in score_fd_list if score > config.face_detection_angle_trh]
+
+        corrected_bbox = [i for i in self.angular_order if i in corrected_bbox]
+        l = len(corrected_bbox)
+        for i in range(l):
+            if len(bbox_fd_list) == 0:
+                break
+            id1, id2 = corrected_bbox[i], corrected_bbox[(i + 1) % l]
+            candidates_bbox, angles = self.get_bbox_between_id(id1, id2, bbox_fd_list)
+            candidates_id = self.get_id_between(id1, id2)
+            if len(candidates_bbox) == len(candidates_id):
+                for index, id in enumerate(candidates_id):
+                    self.correct_tracker(id, candidates_bbox[index])
+
+            bbox_fd_list = [i for i in bbox_fd_list if i not in candidates_bbox]
+        return bbox_fd_list, score_fd_list
+
+    def get_id_between(self, id1, id2):
+        idx1, idx2 = self.angular_order.index(id1) + 1, self.angular_order.index(id2)
+        if idx1 <= idx2:
+            return self.angular_order[idx1:idx2]
+        else:
+            return self.angular_order[idx1:] + self.angular_order[:idx2]
+
+    def get_bbox_between_id(self, id1, id2, bbox_fd_list):
+        a1 = utils.get_angle(self.tmp_track[id1][config.BBOX_KEY], self.cur_img.shape)
+        a2 = utils.get_angle(self.tmp_track[id2][config.BBOX_KEY], self.cur_img.shape)
+        bbox_list = [i for i in bbox_fd_list if utils.is_between(a1, a2, utils.get_angle(i, self.cur_img.shape))]
+        angle_list = []
+
+        for bbox_fd in bbox_fd_list:
+            angle = utils.get_angle(bbox_fd, self.cur_img.shape)
+            if utils.is_between(a1, a2, angle):
+                bbox_list.append(bbox_fd)
+                angle_list.append(angle)
+                zipped_pairs = zip(angle_list, bbox_list)
+                zipped_pairs = sorted(zipped_pairs)
+                bbox_list = [x for _, x in zipped_pairs]
+                angle_list = [x for x, _ in zipped_pairs]
+
+        return bbox_list, angle_list
+
     def check_angle_proximity(self, angle, angles_dict):
         for name, angle2 in angles_dict.items():
             a = abs((angle - angle2 + 180) % 360 - 180)
@@ -446,7 +491,7 @@ class MainTracker:
             return False, corrected_bbox[0]
 
     def check_angular_position(self, name, bbox):
-        angle = utils.get_bbox_angular_pos(bbox, self.cur_img.shape)
+        angle = utils.get_angle(bbox, self.cur_img.shape)
         l = len(self.angular_order)
         ang_order = self.angular_order * 2
         idx = ang_order.index(name)
