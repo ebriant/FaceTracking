@@ -245,6 +245,7 @@ class MainTracker:
                                                                                 corrected_bbox)
         bbox_fd_list, score_fd_list = self.correct_faces_by_order_association(bbox_fd_list, score_fd_list, corrected_bbox)
 
+        logging.info(self.confidence)
         if len(bbox_fd_list) > 0:
             logging.warning("Detected faces unused")
 

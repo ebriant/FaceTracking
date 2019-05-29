@@ -160,3 +160,34 @@ class VisualizerOpencv:
                 break
         cv2.destroyAllWindows()
         return centers
+
+    def ask_gt_rectangle(self, title="image"):
+        bbox_list = []
+
+        tmp_x, tmp_y = 0,0
+
+        def mouse_position(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                global tmp_x, tmp_y
+                tmp_x, tmp_y = x, y
+                cv2.imshow(title, self.img)
+            if event == cv2.EVENT_LBUTTONUP:
+                bbox = [min(tmp_x, x), min(tmp_y, y), abs(tmp_x-x), abs(tmp_y-y)]
+                bbox_list.append(bbox)
+                self.draw_bbox(bbox, thickness=2)
+
+                cv2.imshow(title, self.img)
+
+        # Shows image and wait for user action if callback
+        cv2.namedWindow(title)
+        cv2.setMouseCallback(title, mouse_position)
+        cv2.imshow(title, self.img)
+        while True:
+            key = cv2.waitKey()
+            if key == 8 or key == ord('b'):
+                print("reset")
+                return None
+            else:
+                break
+        cv2.destroyAllWindows()
+        return bbox_list

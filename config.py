@@ -11,13 +11,14 @@ save_img = True
 # img_scale = 1
 max_frame = 20000
 
-init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
-        'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
-        'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
-
-# init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
-#         'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
-#         'k': {'bbox': [361, 240, 100, 77]}}
+if video_path[:-12] == "171214_1.MP4":
+    init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
+            'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
+            'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
+else:
+    init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
+            'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
+            'k': {'bbox': [361, 240, 100, 77]}}
 
 angle_proximity_treshhold = 5
 checking_rate = 30
@@ -27,6 +28,7 @@ min_bbox_size = 30
 max_bbox_size = 150
 correction_overlay_threshold = 0.4
 tracking_overlay_threshold = 0.25
+
 confidence_update_rate = 0.3
 conf_ud_rt = confidence_update_rate
 

@@ -17,7 +17,7 @@ class Labeler:
         self.overwrite = overwrite
         self.names_list = names_list
         _, video_name = os.path.split(config.video_path)
-        self.dump_file = os.path.join(config.label_dir, "{}.txt".format(video_name[:-4]))
+        self.dump_file = os.path.join(config.label_dir, "{}_test.txt".format(video_name[:-4]))
         self.data = {}
         if os.path.isfile(self.dump_file):
             with open(self.dump_file, "r") as f:
@@ -37,6 +37,21 @@ class Labeler:
                 self.data[idx] = {self.names_list[i]: point for i, point in enumerate(frame_data)}
                 self.save_data()
 
+    def get_bboxes(self):
+        for idx in range(0, len(self.s_frames), config.label_frame_step):
+            if self.overwrite or not self.data_exists(idx):
+                img = mpimg.imread(self.s_frames[idx])
+                img = np.array(img)
+                img = cv2.resize(img, None, fx=SCALING, fy=SCALING)
+                frame_data = None
+                while frame_data is None or len(frame_data) != len(self.names_list):
+                    self.visualizer.prepare_img(img, idx)
+                    frame_data = self.visualizer.ask_gt_rectangle()
+                frame_data = [[int(i//SCALING) for i in a] for a in frame_data]
+                self.data[idx] = {self.names_list[i]: bbox for i, bbox in enumerate(frame_data)}
+                print(self.data)
+                self.save_data()
+
     def data_exists(self, index):
         return index in self.data
 
@@ -49,15 +64,18 @@ class Labeler:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    # parser.add_argument('-n', '--names', type=list, default=["a", "b", "c", "d", "e", "f"])
+    parser.add_argument('-n', '--names', type=list, default=["a", "b", "c", "d", "e", "f"])
 
-    parser.add_argument('-n', '--names', type=list, default=["g", "h", "i", "j", "k"])
+    # parser.add_argument('-n', '--names', type=list, default=["g", "h", "i", "j", "k"])
+
     parser.add_argument('-o', '--overwrite', action='store_true', default=False,
                         help='the video name')
 
     args = parser.parse_args()
     labeler = Labeler(args.names, args.overwrite)
 
-    labeler.sort_data()
-    labeler.save_data()
-    labeler.get_data()
+    # labeler.sort_data()
+    # labeler.save_data()
+    # labeler.get_data()
+
+    labeler.get_bboxes()

@@ -234,3 +234,10 @@ def is_between(start, end, mid):
     end = end - start + 360 if (end - start) < 0 else end - start
     mid = mid - start + 360 if (mid - start) < 0 else mid - start
     return 0 < mid < end
+
+
+def is_bbox_in_bbox_list(bbox_list, bbox, th):
+    for bbox2 in bbox_list:
+        if bb_intersection_over_union(bbox2, bbox)>th:
+            return True
+    return False
