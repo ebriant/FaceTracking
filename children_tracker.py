@@ -55,7 +55,8 @@ class MainTracker:
         self.visualizer = visualization.VisualizerOpencv()
         self.face_aligner = face_alignment.FaceAligner()
         self.trackers_list = {}
-        # self.fa = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
+        self.lt_trackers_list = {}
+
         # Load the video sequence
         self.s_frames = utils.load_seq_video()
         if not os.path.exists(config.out_dir):
@@ -112,6 +113,7 @@ class MainTracker:
         tracker = Tracker(self.model)
         tracker.initialize(self.s_frames[self.frame_number], bbox)
         self.trackers_list[name] = tracker
+        self.lt_trackers_list[name] = tracker
 
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
@@ -129,7 +131,7 @@ class MainTracker:
                     logging.info("Processing frame {}".format(idx))
                     for name, tracker in self.trackers_list.items():
                         tracker.idx += 1
-                        bbox, cur_frame = tracker.track(self.s_frames[idx])
+                        bbox, cur_frame = tracker.track(self.s_frames[self.frame_number])
                         bbox = [int(i) for i in bbox]
                         self.tmp_track[name] = {config.BBOX_KEY: bbox}
 
@@ -157,7 +159,7 @@ class MainTracker:
             return
 
     def update_confidence(self, name, confidence=0.0):
-        self.confidence[name] = self.confidence[name] * (1 - config.conf_ud_rt) + confidence * config.conf_ud_rt
+        self.confidence[name] = round(self.confidence[name] * (1 - config.conf_ud_rt) + confidence * config.conf_ud_rt,4)
 
     def merge_temp(self):
         for name, data in self.tmp_track.items():
@@ -240,10 +242,17 @@ class MainTracker:
         score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
 
         self.plot_fd_elements(bbox_fd_list, score_fd_list)
+
+        # self.long_term_tracker()
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list, score_fd_list)
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, score_fd_list,
                                                                                 corrected_bbox)
-        bbox_fd_list, score_fd_list = self.correct_faces_by_order_association(bbox_fd_list, score_fd_list, corrected_bbox)
+        bbox_fd_list, score_fd_list = self.correct_faces_by_proximity(bbox_fd_list, score_fd_list,
+                                                                              corrected_bbox)
+
+        for name, data in self.tmp_track.items():
+            if name not in corrected_bbox:
+                self.update_confidence(name, 0)
 
         logging.info(self.confidence)
         if len(bbox_fd_list) > 0:
@@ -251,12 +260,20 @@ class MainTracker:
 
         self.latent_track = self.tmp_track.copy()
 
+    def long_term_tracker(self):
+        for name, tracker in self.lt_trackers_list.items():
+            tracker.idx += 1
+            bbox, cur_frame = tracker.track(self.s_frames[self.frame_number])
+            bbox = [int(i) for i in bbox]
+            self.visualizer.draw_bbox(bbox, color=(255, 255, 0), thickness=2)
+        self.visualizer.plt_img({})
+
     def plot_fd_elements(self, bbox_fd_list, score_fd_list):
         # Draw detected faces
         for idx, bbox_fd in enumerate(bbox_fd_list):
             vizu = [bbox_fd[0] - 2, bbox_fd[1] - 2, bbox_fd[2] + 4, bbox_fd[3] + 4]
             self.visualizer.draw_bbox(vizu, label=round(score_fd_list[idx], 3), color=(0, 125, 255), thickness=2)
-            self.visualizer.plt_img({})
+        self.visualizer.plt_img({})
 
         # Draw ROI
         for name, data in self.tmp_track.items():
@@ -264,6 +281,7 @@ class MainTracker:
             xmin, ymin, xmax, ymax = utils.get_roi(bbox, self.cur_img)
             roi = [xmin, ymin, xmax - xmin, ymax - ymin]
             self.visualizer.draw_bbox(roi, color=(150, 0, 0))
+        self.visualizer.plt_img({})
 
     def correct_faces_by_iou(self, bbox_fd_list, score_fd_list):
         corrected_bbox = {}
@@ -432,6 +450,9 @@ class MainTracker:
             bbox_fd_list = [i for i in bbox_fd_list if i not in candidates_bbox]
         return bbox_fd_list, score_fd_list
 
+    def recover_id(self):
+        return
+
     def get_id_between(self, id1, id2):
         idx1, idx2 = self.angular_order.index(id1) + 1, self.angular_order.index(id2)
         if idx1 <= idx2:
@@ -467,7 +488,9 @@ class MainTracker:
     def correct_tracker(self, name, bbox, replace=False):
         self.tmp_track[name][config.BBOX_KEY] = bbox
         if replace:
-            self.set_up_tracker(name, bbox)
+            tracker = Tracker(self.model)
+            tracker.initialize(self.s_frames[self.frame_number], bbox)
+            self.trackers_list[name] = tracker
         else:
             self.trackers_list[name].redefine_roi(bbox)
 

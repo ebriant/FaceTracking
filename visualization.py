@@ -69,11 +69,15 @@ class VisualizerOpencv:
         self.SELECTED_COLOR = tuple([int(a * 255) for a in reversed(config.SELECTED_COLOR)])
         self.idx = 0
 
-    def prepare_img(self, img, frame_idx=0):
+    def prepare_img(self, img, frame_idx=None):
         self.idx = frame_idx
         self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(self.img, dtype=np.uint8)
-        cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+        if frame_idx is not None:
+            cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+    def resize(self, scale):
+        self.img = cv2.resize(self.img, None, fx=scale, fy=scale)
 
     def save_img(self, out_dir):
         img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
@@ -87,9 +91,9 @@ class VisualizerOpencv:
         cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 1, color)
         return
 
-    def plot_facial_features(self, landmarks_list):
+    def plot_facial_features(self, landmarks_list, size=0):
         for i in range(0, 68):
-            cv2.circle(self.img, (int(landmarks_list[i, 0]), int(landmarks_list[i, 1])), 1, color=(0, 0, 255))
+            cv2.circle(self.img, (int(landmarks_list[i, 0]), int(landmarks_list[i, 1])), size, color=(0, 0, 255))
 
     def select_bbox(self, bboxes_list, *, title="image"):
         selected_bbox = []

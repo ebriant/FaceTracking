@@ -230,6 +230,7 @@ def is_point_in_bbox_list(bbox_list, point):
             return True
     return False
 
+
 def is_between(start, end, mid):
     end = end - start + 360 if (end - start) < 0 else end - start
     mid = mid - start + 360 if (mid - start) < 0 else mid - start
@@ -241,3 +242,7 @@ def is_bbox_in_bbox_list(bbox_list, bbox, th):
         if bb_intersection_over_union(bbox2, bbox)>th:
             return True
     return False
+
+
+def grad(v1, v2, t):
+    return np.subtract(np.array(v1), np.array(v2)) / t

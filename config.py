@@ -4,14 +4,13 @@ import logging
 logging_level = logging.INFO
 data_dir = "data"
 video_path = os.path.join(data_dir, "videos/171214_1.MP4")
-out_dir = os.path.join(data_dir, "output/171214_1_30_new")
+out_dir = os.path.join(data_dir, "output/171214_1_vr30")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
 max_frame = 20000
-
-if video_path[:-12] == "171214_1.MP4":
+if video_path[-12:] == "171214_1.MP4":
     init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
             'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
             'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
@@ -29,7 +28,7 @@ max_bbox_size = 150
 correction_overlay_threshold = 0.4
 tracking_overlay_threshold = 0.25
 
-confidence_update_rate = 0.3
+confidence_update_rate = 0.5
 conf_ud_rt = confidence_update_rate
 
 tracking_data = "data/tracking"
@@ -43,6 +42,8 @@ face_detection_roi_trh = 0.8
 face_detection_angle_trh = 0.9
 
 label_frame_step = 10
+
+face_orientation_max_grad = 3
 
 ##########################___DATASETS___#########################
 

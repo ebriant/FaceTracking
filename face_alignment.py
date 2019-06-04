@@ -60,8 +60,9 @@ def face_orientation(l_eye, r_eye, mouth):
     yaw = np.degrees(np.arcsin(cp[0]))
     pitch = np.degrees(np.arcsin(cp[1]))
 
-    print("roll: %d, pitch %d, yaw %d" % (roll, pitch, yaw))
-    return roll, pitch, yaw
+    # print("roll: %d, pitch %d, yaw %d" % (roll, pitch, yaw))
+
+    return int(roll), int(pitch), int(yaw)
 
 
 if __name__ == "__main__":
