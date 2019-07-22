@@ -80,6 +80,8 @@ class VisualizerOpencv:
         self.img = cv2.resize(self.img, None, fx=scale, fy=scale)
 
     def save_img(self, out_dir, name=None):
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         if name is None:
             name = "%05d.jpg" % self.idx
         img_write_path = os.path.join(out_dir, name)
@@ -128,7 +130,9 @@ class VisualizerOpencv:
         cv2.destroyAllWindows()
         return self.img, selected_bbox, names_list
 
-    def plt_img(self, tracking_data, title="image"):
+    def plt_img(self, tracking_data=None, title="image"):
+        if tracking_data is None:
+            tracking_data = {}
         for name, data in tracking_data.items():
             bbox = [int(e) for e in data[config.BBOX_KEY]]
             self.draw_bbox(bbox, label=name, color=self.BBOX_COLOR, thickness=2)
