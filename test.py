@@ -1,14 +1,6 @@
-import cv2
-import utils
-from PIL import Image
 import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 import visualization
 import numpy as np
-import PIL
-
-
-from matplotlib import pyplot as plt
 
 img = mpimg.imread("data/img/00000.jpg")
 img = np.array(img)

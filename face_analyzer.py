@@ -74,7 +74,6 @@ class FaceAnalizer:
             return True
         last_vect, idx = self.get_last(name)
         gradient = np.linalg.norm(utils.grad(vector, last_vect, frame - idx))
-        print("************", gradient)
         return gradient < config.face_orientation_max_grad
 
     def get_last(self, name):

@@ -79,8 +79,10 @@ class VisualizerOpencv:
     def resize(self, scale):
         self.img = cv2.resize(self.img, None, fx=scale, fy=scale)
 
-    def save_img(self, out_dir):
-        img_write_path = os.path.join(out_dir, "%05d.jpg" % self.idx)
+    def save_img(self, out_dir, name=None):
+        if name is None:
+            name = "%05d.jpg" % self.idx
+        img_write_path = os.path.join(out_dir, name)
         cv2.imwrite(img_write_path, self.img)
 
     def draw_bbox(self, bbox, label="", color=(0, 255, 0), **kwargs):
@@ -165,10 +167,9 @@ class VisualizerOpencv:
         cv2.destroyAllWindows()
         return centers
 
-    def ask_gt_rectangle(self, title="image"):
+    def ask_bboxes(self, title="image"):
         bbox_list = []
-
-        tmp_x, tmp_y = 0,0
+        tmp_x, tmp_y = 0, 0
 
         def mouse_position(event, x, y, flags, param):
             if event == cv2.EVENT_LBUTTONDOWN:
@@ -176,7 +177,7 @@ class VisualizerOpencv:
                 tmp_x, tmp_y = x, y
                 cv2.imshow(title, self.img)
             if event == cv2.EVENT_LBUTTONUP:
-                bbox = [min(tmp_x, x), min(tmp_y, y), abs(tmp_x-x), abs(tmp_y-y)]
+                bbox = [min(tmp_x, x), min(tmp_y, y), abs(tmp_x - x), abs(tmp_y - y)]
                 bbox_list.append(bbox)
                 self.draw_bbox(bbox, thickness=2)
 
@@ -188,9 +189,15 @@ class VisualizerOpencv:
         cv2.imshow(title, self.img)
         while True:
             key = cv2.waitKey()
-            if key == 8 or key == ord('b'):
+            if key == 8:
                 print("reset")
                 return None
+            elif key == ord('s'):
+                print("skip")
+                bbox_list.append([0, 0, 0, 0])
+            elif key == ord('b'):
+                print("back")
+                bbox_list.pop()
             else:
                 break
         cv2.destroyAllWindows()

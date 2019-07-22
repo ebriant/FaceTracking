@@ -1,12 +1,11 @@
-import utils
-import visualization
 import matplotlib.image as mpimg
 import numpy as np
 import argparse
 import os
 import config
 import cv2
-
+import utils
+import visualization
 SCALING = 1.2
 
 
@@ -38,6 +37,7 @@ class Labeler:
                 self.save_data()
 
     def get_bboxes(self):
+        last_data = []
         for idx in range(0, len(self.s_frames), config.label_frame_step):
             if self.overwrite or not self.data_exists(idx):
                 img = mpimg.imread(self.s_frames[idx])
@@ -45,11 +45,18 @@ class Labeler:
                 img = cv2.resize(img, None, fx=SCALING, fy=SCALING)
                 frame_data = None
                 while frame_data is None or len(frame_data) != len(self.names_list):
+                    # if idx > 0:
+                    #
+                    #     continue
+
                     self.visualizer.prepare_img(img, idx)
-                    frame_data = self.visualizer.ask_gt_rectangle()
+
+                    frame_data = self.visualizer.ask_bboxes()
+
                 frame_data = [[int(i//SCALING) for i in a] for a in frame_data]
+                last_data = [i for i in frame_data]
                 self.data[idx] = {self.names_list[i]: bbox for i, bbox in enumerate(frame_data)}
-                print(self.data)
+
                 self.save_data()
 
     def data_exists(self, index):
@@ -62,20 +69,21 @@ class Labeler:
     def sort_data(self):
         self.data = {key: self.data[key] for key in sorted(self.data)}
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-n', '--names', type=list, default=["a", "b", "c", "d", "e", "f"])
-
-    # parser.add_argument('-n', '--names', type=list, default=["g", "h", "i", "j", "k"])
-
-    parser.add_argument('-o', '--overwrite', action='store_true', default=False,
-                        help='the video name')
-
+    parser.add_argument('-n', '--names', type=list)
+    parser.add_argument('-o', '--overwrite', action='store_true', default=False)
+    parser.add_argument('-m', '--mode', type=str, choices=['point', 'bbox'], help="mode of operation")
     args = parser.parse_args()
+
     labeler = Labeler(args.names, args.overwrite)
+    if args.mode == "point":
+        labeler.get_data()
+    elif args.mode == "bbox":
+        labeler.get_bboxes()
 
     # labeler.sort_data()
     # labeler.save_data()
     # labeler.get_data()
-
-    labeler.get_bboxes()
+    # labeler.get_bboxes()

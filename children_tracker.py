@@ -1,16 +1,13 @@
 import os
-import cv2
 import config
 import tensorflow as tf
 import numpy as np
 import utils
-import argparse
 import logging
 from PIL import Image
 import matplotlib.image as mpimg
 import visualization
 import face_alignment
-from faceAlignment.face_alignment.api import FaceAlignment, LandmarksType
 
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model

@@ -1,12 +1,9 @@
 import os
-import math
-import random
 import time
 import numpy as np
 import tensorflow as tf
 import cv2
 from PIL import Image
-import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import visualization
 
