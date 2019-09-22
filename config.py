@@ -3,7 +3,7 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
-video_path = os.path.join(data_dir, "videos/171214_1.MP4")
+video_path = os.path.join(data_dir, "videos/171214_2.MP4")
 out_dir = os.path.join(data_dir, "output/171214_1_vr30")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
@@ -14,10 +14,12 @@ if video_path[-12:] == "171214_1.MP4":
     init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
             'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
             'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
-else:
+elif video_path[-12:] == "171214_2.MP4":
     init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
             'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
             'k': {'bbox': [361, 240, 100, 77]}}
+else:
+    init = {}
 
 angle_proximity_treshhold = 5
 checking_rate = 30

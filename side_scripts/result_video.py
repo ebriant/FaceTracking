@@ -9,17 +9,25 @@ def to_video(dir, name):
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(os.path.join(dir, name), fourcc, 30.0, (640,640))
     dir_img = os.listdir(dir)
+
+
     for img in dir_img:
         frame = cv2.imread(os.path.join(dir, img))
-        out.write(frame)
+    # for i in range(910,970):
+    #     frame = cv2.imread(os.path.join(dir, dir_img[i]))
+        for j in range(3):
+            out.write(frame)
+    # for img in dir_img:
+    #     frame = cv2.imread(os.path.join(dir, img))
+    #     out.write(frame)
     # Release everything if job is finished
     out.release()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-d', '--dir', type=str, default="data/output/171214_1_vr30",
+    parser.add_argument('-d', '--dir', type=str, default="data/output/171214_1_blured3",
                         help='the directory to put in video')
-    parser.add_argument('-n', '--name', type=str, default="video.mp4",
+    parser.add_argument('-n', '--name', type=str, default="deformation.mp4",
                         help='the video name')
     args = parser.parse_args()
     to_video(args.dir, args.name)

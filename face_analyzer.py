@@ -16,7 +16,7 @@ class FaceAnalizer:
         self.position_data = data_handler.get_data(os.path.join(config.out_dir, "171214_1.txt"))
         self.face_aligner = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         self.positions = {}
-        self.s_frames = utils.load_seq_video()
+        self.s_frames = utils.get_video_frames()
         self.data = {name: [] for name in self.position_data}
         self.cur_img = None
 

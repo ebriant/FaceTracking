@@ -55,7 +55,7 @@ class MainTracker:
         self.lt_trackers_list = {}
 
         # Load the video sequence
-        self.s_frames = utils.load_seq_video()
+        self.s_frames = utils.get_video_frames()
         if not os.path.exists(config.out_dir):
             os.mkdir(config.out_dir)
         _, video_name = os.path.split(config.video_path)

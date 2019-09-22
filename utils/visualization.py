@@ -7,6 +7,7 @@ import numpy as np
 import os
 import config
 import random
+from math import cos, sin
 
 fig, ax = plt.subplots(1)
 
@@ -63,18 +64,26 @@ class VisualizerPlt:
 
 
 class VisualizerOpencv:
-    def __init__(self):
+    def __init__(self, img=None):
         self.img = None
+        if img is not None:
+            self.prepare_img(img)
         self.BBOX_COLOR = tuple([int(a * 255) for a in reversed(config.BBOX_COLOR)])
         self.SELECTED_COLOR = tuple([int(a * 255) for a in reversed(config.SELECTED_COLOR)])
         self.idx = 0
 
-    def prepare_img(self, img, frame_idx=None):
+    def prepare_img(self, img, frame_idx=None, *, cvt_color=False, scaling=1):
         self.idx = frame_idx
-        self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.img = np.array(self.img, dtype=np.uint8)
+        if cvt_color:
+            self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.img = np.array(img, dtype=np.uint8)
+        self.img = cv2.resize(self.img, None, fx=scaling, fy=scaling)
         if frame_idx is not None:
             cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+    def open_img_path(self, img_path, frame_idx=None, scaling=1):
+        img = cv2.imread(img_path)
+        self.prepare_img(img, frame_idx, cvt_color=False, scaling=scaling)
 
     def resize(self, scale):
         self.img = cv2.resize(self.img, None, fx=scale, fy=scale)
@@ -206,3 +215,38 @@ class VisualizerOpencv:
                 break
         cv2.destroyAllWindows()
         return bbox_list
+
+    def draw_axis(self, yaw, pitch, roll, tdx=None, tdy=None, size=100):
+        pitch = pitch * np.pi / 180
+        yaw = -(yaw * np.pi / 180)
+        roll = roll * np.pi / 180
+
+        if tdx is None and tdy is None:
+            height, width = self.img.shape[:2]
+            tdx = width / 2
+            tdy = height / 2
+
+        # X-Axis pointing to right. drawn in red
+        x1 = size * (cos(yaw) * cos(roll)) + tdx
+        y1 = size * (cos(pitch) * sin(roll) + cos(roll) * sin(pitch) * sin(yaw)) + tdy
+
+        # Y-Axis | drawn in green
+        #        v
+        x2 = size * (-cos(yaw) * sin(roll)) + tdx
+        y2 = size * (cos(pitch) * cos(roll) - sin(pitch) * sin(yaw) * sin(roll)) + tdy
+
+        # Z-Axis (out of the screen) drawn in blue
+        x3 = size * (sin(yaw)) + tdx
+        y3 = size * (-cos(yaw) * sin(pitch)) + tdy
+
+        cv2.line(self.img, (int(tdx), int(tdy)), (int(x1), int(y1)), (0, 0, 255), 3)
+        cv2.line(self.img, (int(tdx), int(tdy)), (int(x2), int(y2)), (0, 255, 0), 3)
+        cv2.line(self.img, (int(tdx), int(tdy)), (int(x3), int(y3)), (255, 0, 0), 2)
+
+    def blur_area(self, bbox, ksize=20):
+        sub_face = self.img[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        # apply a gaussian blur on this new recangle image
+        sub_face = cv2.GaussianBlur(sub_face, (ksize, ksize), 30)
+        # merge this blurry rectangle to our final image
+        self.img[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = sub_face
+

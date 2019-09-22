@@ -8,7 +8,7 @@ import torch
 from math import cos, sin
 
 
-def load_seq_video():
+def get_video_frames():
     cap = cv2.VideoCapture(config.video_path)
     _, video_name = os.path.split(config.video_path)
     img_dir_path = os.path.join(config.img_dir, video_name[:-4])
@@ -94,6 +94,25 @@ def get_bbox_dist(bbox1, bbox2):
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
+def resize_bbox(bbox, img, scale=1, make_square=False):
+
+    x_c = bbox[0] + bbox[2] / 2
+    y_c = bbox[1] + bbox[3] / 2
+
+    width = bbox[2] * scale
+    height = bbox[3] * scale
+
+    if make_square:
+        width, height = max(width, height), max(width, height)
+
+    xmin = int(max(0, x_c - width / 2))
+    ymin = int(max(0, y_c - height / 2))
+    xmax = int(min(img.shape[0], x_c + width / 2))
+    ymax = int(min(img.shape[1], y_c + height / 2))
+
+    return [xmin, ymin, xmax-xmin, ymax-ymin]
+
+
 def get_roi(bbox, img, scale=config.roi_ratio):
     size = max(bbox[2], bbox[3])
     x_c = bbox[0] + bbox[2] / 2
@@ -121,15 +140,15 @@ def landmarks_img_coord(landmarks, crop_coord):
     return landmarks
 
 
-def rotate_roi(img, bbox, img_size):
+def rotate_roi(roi, bbox, img_size):
     """
     Rotate a bounding box depending on it's position in the image
     Rotation angle is given in degree counter-clockwise
-    :param img:
+    :param roi:
     :param bbox:
     :return:
     """
-    h, w = img.shape[0], img.shape[1]
+    h, w = roi.shape[0], roi.shape[1]
     x, y = bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2
     img_center = (w / 2, h / 2)
 
@@ -137,22 +156,22 @@ def rotate_roi(img, bbox, img_size):
         angle = 90
         # M = cv2.getRotationMatrix2D(img_center, angle, 1)
         # dst = cv2.warpAffine(img, M, (h, w))
-        dst = imutils.rotate_bound(img, -angle)
+        dst = imutils.rotate_bound(roi, -angle)
 
     elif y < x and x + y < img_size:
         angle = 180
         # M = cv2.getRotationMatrix2D(img_center, angle, 1)
         # dst = cv2.warpAffine(img, M, (w, h))
-        dst = imutils.rotate_bound(img, -angle)
+        dst = imutils.rotate_bound(roi, -angle)
 
     elif y < x and x + y > img_size:
         angle = -90
         # M = cv2.getRotationMatrix2D(img_center, -angle, 1)
         # dst = cv2.warpAffine(img, M, (h, w))
-        dst = imutils.rotate_bound(img, -angle)
+        dst = imutils.rotate_bound(roi, -angle)
     else:
         angle = 0
-        dst = img
+        dst = roi
 
     return dst, angle
 
@@ -241,10 +260,10 @@ def is_between(start, end, mid):
 
 
 def is_bbox_in_bbox_list(bbox_list, bbox, th):
-    for bbox2 in bbox_list:
+    for idx, bbox2 in enumerate(bbox_list):
         if bb_intersection_over_union(bbox2, bbox) > th:
-            return True
-    return False
+            return True, bbox2
+    return False, None
 
 
 def grad(v1, v2, t):
@@ -367,3 +386,12 @@ def draw_axis(img, yaw, pitch, roll, tdx=None, tdy=None, size=100):
     cv2.line(img, (int(tdx), int(tdy)), (int(x3), int(y3)), (255, 0, 0), 2)
 
     return img
+
+
+def get_initial_weights(output_size):
+    b = np.zeros((2, 3), dtype='float32')
+    b[0, 0] = 1
+    b[1, 1] = 1
+    W = np.zeros((output_size, 6), dtype='float32')
+    weights = [W, b.flatten()]
+    return weights
