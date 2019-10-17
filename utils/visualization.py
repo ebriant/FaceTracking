@@ -9,61 +9,8 @@ import config
 import random
 from math import cos, sin
 
-fig, ax = plt.subplots(1)
 
-
-class VisualizerPlt:
-    def __init__(self):
-        self.fig, self.ax = plt.subplot()
-        self.rectangles_list = []
-
-    def draw_bbox(self, ax, bbox, label="", color=(0, 255, 0), thickness=2):
-        rect = patches.Rectangle((bbox[0], bbox[1] + bbox[3]), bbox[2], bbox[3], linewidth=1, edgecolor=color)
-        self.ax.add_patch(rect)
-
-        return
-
-    def plt_img(img, bboxes_list, *, landmarks=None, title="image", callback=False, color=(0, 1, 0)):
-        ax.clear()
-        selected_bbox = []
-        # Display the image
-        ax.imshow(img)
-        for bbox in bboxes_list:
-            rect = patches.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3],
-                                     linewidth=1, edgecolor=color, facecolor='none')
-            ax.add_patch(rect)
-
-        def is_in_bbox(box, x, y):
-            if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
-                return True
-            return False
-
-        def onclick(event):
-            global ix, iy
-            ix, iy = event.xdata, event.ydata
-            for bbox in bboxes_list:
-                if is_in_bbox(bbox, ix, iy):
-                    rect = patches.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3],
-                                             linewidth=1, edgecolor=config.SELECTED_COLOR, facecolor='none')
-                    ax.add_patch(rect)
-                    plt.draw()
-                    selected_bbox.append(bbox)
-            return
-
-        def press(event):
-            if event.key == 'x' or event.key == ' ':
-                plt.close()
-                return
-
-        if callback:
-            cid = fig.canvas.mpl_connect('button_press_event', onclick)
-            cid2 = fig.canvas.mpl_connect('key_press_event', press)
-        plt.tight_layout()
-        plt.show()
-        return img, selected_bbox
-
-
-class VisualizerOpencv:
+class ImageProcessor:
     def __init__(self, img=None):
         self.img = None
         if img is not None:
@@ -75,15 +22,17 @@ class VisualizerOpencv:
     def prepare_img(self, img, frame_idx=None, *, cvt_color=False, scaling=1):
         self.idx = frame_idx
         if cvt_color:
-            self.img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.img = np.array(img, dtype=np.uint8)
-        self.img = cv2.resize(self.img, None, fx=scaling, fy=scaling)
+        if scaling != 1:
+            self.img = cv2.resize(self.img, None, fx=scaling, fy=scaling)
         if frame_idx is not None:
             cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
     def open_img_path(self, img_path, frame_idx=None, scaling=1):
         img = cv2.imread(img_path)
         self.prepare_img(img, frame_idx, cvt_color=False, scaling=scaling)
+        return self.img
 
     def resize(self, scale):
         self.img = cv2.resize(self.img, None, fx=scale, fy=scale)
@@ -104,7 +53,7 @@ class VisualizerOpencv:
         cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 1, color)
         return
 
-    def plot_facial_features(self, landmarks_list, size=0):
+    def plot_facial_features(self, landmarks_list, size=1):
         for i in range(0, 68):
             cv2.circle(self.img, (int(landmarks_list[i, 0]), int(landmarks_list[i, 1])), size, color=(0, 0, 255))
 

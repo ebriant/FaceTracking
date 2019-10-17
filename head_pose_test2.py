@@ -82,7 +82,7 @@ print('Start detecting pose ...')
 detected_pre = []
 
 def main():
-    visualizer = visualization.VisualizerOpencv()
+    visualizer = visualization.ImageProcessor()
     position_data = data_handler.get_data(os.path.join(config.out_dir, "171214_1.txt"))
     s_frames = utils.get_video_frames()
 

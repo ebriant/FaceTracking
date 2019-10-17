@@ -148,26 +148,19 @@ def rotate_roi(roi, bbox, img_size):
     :param bbox:
     :return:
     """
-    h, w = roi.shape[0], roi.shape[1]
+
     x, y = bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2
-    img_center = (w / 2, h / 2)
 
     if y > x and x + y < img_size:
         angle = 90
-        # M = cv2.getRotationMatrix2D(img_center, angle, 1)
-        # dst = cv2.warpAffine(img, M, (h, w))
         dst = imutils.rotate_bound(roi, -angle)
 
     elif y < x and x + y < img_size:
         angle = 180
-        # M = cv2.getRotationMatrix2D(img_center, angle, 1)
-        # dst = cv2.warpAffine(img, M, (w, h))
         dst = imutils.rotate_bound(roi, -angle)
 
     elif y < x and x + y > img_size:
         angle = -90
-        # M = cv2.getRotationMatrix2D(img_center, -angle, 1)
-        # dst = cv2.warpAffine(img, M, (h, w))
         dst = imutils.rotate_bound(roi, -angle)
     else:
         angle = 0

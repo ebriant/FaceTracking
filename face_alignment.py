@@ -66,7 +66,7 @@ def face_orientation(l_eye, r_eye, mouth):
 
 
 if __name__ == "__main__":
-    visualizer = visualization.VisualizerOpencv()
+    visualizer = visualization.ImageProcessor()
 
     with open("data/preds.json") as f:
         data = json.load(f)

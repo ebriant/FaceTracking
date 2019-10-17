@@ -11,7 +11,7 @@ OVERWRITE = True
 
 s_frame = utils.get_video_frames()
 data = data_handler.get_data("data/output/171214_1.txt")
-visualizer = visualization.VisualizerOpencv()
+visualizer = visualization.ImageProcessor()
 for i in range(5040, MAX_FRAME):
 
     if not OVERWRITE and os.path.isfile(s_frame[i]):

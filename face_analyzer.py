@@ -12,7 +12,7 @@ import copy
 class FaceAnalizer:
     def __init__(self):
         print(os.path.join(config.out_dir, "171214_1.txt"))
-        self.visualizer = visualization.VisualizerOpencv()
+        self.visualizer = visualization.ImageProcessor()
         self.position_data = data_handler.get_data(os.path.join(config.out_dir, "171214_1.txt"))
         self.face_aligner = FaceAlignment(LandmarksType._3D, device='cuda:0', flip_input=True)
         self.positions = {}
@@ -23,7 +23,7 @@ class FaceAnalizer:
     def get_all_positions(self):
         frame_idx = 0
         while frame_idx < len(self.s_frames):
-            last_frame = min(frame_idx + config.checking_rate, len(self.s_frames))
+            last_frame = min(frame_idx + 1, len(self.s_frames))
             for name, data in self.position_data.items():
                 for frame in range(frame_idx, last_frame):
                     self.get_position(name, data[config.BBOX_KEY], frame)
@@ -38,7 +38,7 @@ class FaceAnalizer:
     def get_position(self, name, data, frame):
         self.cur_img = mpimg.imread(self.s_frames[frame])
         self.cur_img = np.array(self.cur_img)
-        face, crop_coord = utils.crop_roi(data[frame], self.cur_img, 1.5)
+        face, crop_coord = utils.crop_roi(data[frame], self.cur_img, 2)
         face, angle = utils.rotate_roi(face, data[frame], self.cur_img.shape[0])
 
         landmarks = self.face_aligner.get_landmarks(face)
@@ -46,14 +46,14 @@ class FaceAnalizer:
             self.data[name].append(None)
         else:
             landmarks = np.array(landmarks)[0]
-            lm2 = copy.deepcopy(landmarks)
-            utils.rotate_landmarks(landmarks, face, -angle)
-            utils.landmarks_img_coord(landmarks, crop_coord)
-
-            self.visualizer.prepare_img(self.cur_img)
-            self.visualizer.plot_facial_features(landmarks, size=2)
-            self.visualizer.resize(1)
-            self.visualizer.plt_img({})
+            # lm2 = copy.deepcopy(landmarks)
+            # utils.rotate_landmarks(landmarks, face, -angle)
+            # utils.landmarks_img_coord(landmarks, crop_coord)
+            #
+            # self.visualizer.prepare_img(self.cur_img)
+            # self.visualizer.plot_facial_features(landmarks, size=2)
+            # self.visualizer.resize(1)
+            # self.visualizer.plt_img({})
 
             # self.visualizer.prepare_img(face)
             # self.visualizer.plot_facial_features(lm2, size=2)
@@ -63,10 +63,16 @@ class FaceAnalizer:
             orientation = list(face_alignment.face_orientation(landmarks[43:48], landmarks[36:42], landmarks[8]))
 
             print(orientation)
-            if self.check_grad(orientation, name, frame):
-                self.data[name].append(orientation)
-            else:
-                self.data[name].append(None)
+            print(str(frame) + "_" + name)
+            self.visualizer.prepare_img(face, cvt_color=True)
+            self.visualizer.plot_facial_features(landmarks)
+            # self.visualizer.draw_axis(orientation[1], orientation[0], orientation[2], size=20)
+            self.visualizer.save_img("data/head_pose_landmark_test2", str(frame) + "_" + name + ".jpg")
+            self.data[name].append(orientation)
+            # if self.check_grad(orientation, name, frame):
+            #
+            # else:
+            #     self.data[name].append(None)
         return
 
     def check_grad(self, vector, name, frame):

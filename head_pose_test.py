@@ -16,7 +16,7 @@ import numpy as np
 import visualization
 import time
 
-visualizer = visualization.VisualizerOpencv()
+visualizer = visualization.ImageProcessor()
 cudnn.enabled = True
 batch_size = 1
 gpu = 0
@@ -64,10 +64,10 @@ def get_head_pose(img, bbox):
     y_max += bbox_height / 4
     x_min = max(x_min, 0)
     y_min = max(y_min, 0)
-    x_max = min(frame.shape[1], x_max)
-    y_max = min(frame.shape[0], y_max)
+    x_max = min(img.shape[1], x_max)
+    y_max = min(img.shape[0], y_max)
     # Crop image
-    img = frame[int(y_min):int(y_max), int(x_min):int(x_max)]
+    img = img[int(y_min):int(y_max), int(x_min):int(x_max)]
 
     img = Image.fromarray(img)
 
@@ -94,32 +94,30 @@ if __name__ == '__main__':
     position_data = data_handler.get_data(os.path.join(config.out_dir, "171214_1.txt"))
     s_frames = utils.get_video_frames()
 
-    with open(os.path.join(config.label_dir, "171214_1_test.txt")) as f:
+    with open(os.path.join(config.label_dir, "171214_1_bbox.txt")) as f:
         labels = eval(f.read())
 
     for frame_idx, frame_label in labels.items():
-        frame = mpimg.imread(s_frames[frame_idx])
-        frame = np.array(frame)
-        visualizer.prepare_img(frame, frame_idx)
+        visualizer.open_img_path(s_frames[frame_idx])
+        frame = visualizer.img
         for name, label in frame_label.items():
             if label[2] > 0 and label[3] > 0:
                 bbox = label
-
-                frame2, angle = utils.rotate_roi(frame, bbox, frame.size)
-                bbox2 = utils.rotate_bbox(bbox, frame, angle)
-                print(bbox)
-                print(bbox2)
+                face, coord = utils.crop_roi(bbox, frame, 2)
+                bbox2 = [bbox[0]-coord[0], bbox[1]-coord[1], bbox[2], bbox[3]]
+                visualizer.prepare_img(face)
+                # frame2, angle = utils.rotate_roi(frame, bbox, frame.size)
+                # bbox2 = utils.rotate_bbox(bbox, frame, angle)
                 # yaw_predicted, pitch_predicted, roll_predicted = get_head_pose(frame, bbox)
 
-                yaw, pitch, roll = get_head_pose(frame2, bbox2)
-                roll -= angle
+                yaw, pitch, roll = get_head_pose(face, bbox2)
+                # roll -= angle
 
-                visualizer.draw_axis(yaw, pitch, roll, tdx = bbox[0] + bbox[2] / 2,
-                                             tdy=bbox[1] + bbox[3] / 2, size=min(bbox[2], bbox[3]) / 2)
-                break
+                visualizer.draw_axis(yaw, pitch, roll, tdx = bbox2[0] + bbox2[2] / 2,
+                                             tdy=bbox2[1] + bbox2[3] / 2, size=min(bbox2[2], bbox2[3]) / 2)
 
-        visualizer.plt_img()
-        # visualizer.save_img("data/head_pose_test2")
+                visualizer.plt_img()
+                visualizer.save_img("data/head_pose_test2", str(frame_idx)+ "_" + name +".jpg")
 
 # for name, data2 in position_data.items():
 #     data = position_data["d"]

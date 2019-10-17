@@ -137,7 +137,7 @@ class Evaluator:
         self.perf["average_accuracy"] = round(sum / nb_children, DECIMAL_PRECISION)
 
     def make_video(self, out_dir):
-        visualizer = visualization.VisualizerOpencv()
+        visualizer = visualization.ImageProcessor()
         data_length = len(next(iter(self.data.values()))[config.BBOX_KEY])
         s_frames = utils.get_video_frames()
         for frame, frame_label in self.labels.items():

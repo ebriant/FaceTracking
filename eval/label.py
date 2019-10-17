@@ -12,7 +12,7 @@ FRAME_STEP = 10
 
 class Labeler:
     def __init__(self, overwrite, mode):
-        self.visualizer = visualization.VisualizerOpencv()
+        self.visualizer = visualization.ImageProcessor()
         self.s_frames = utils.get_video_frames()
         self.overwrite = overwrite
         _, video_name = os.path.split(config.video_path)

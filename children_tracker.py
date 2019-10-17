@@ -49,7 +49,7 @@ START_FRAME = 1
 class MainTracker:
     def __init__(self):
         self.model = None
-        self.visualizer = visualization.VisualizerOpencv()
+        self.visualizer = visualization.ImageProcessor()
         self.face_aligner = face_alignment.FaceAligner()
         self.trackers_list = {}
         self.lt_trackers_list = {}
