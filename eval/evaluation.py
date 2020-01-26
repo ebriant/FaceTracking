@@ -8,7 +8,7 @@ import visualization
 
 FRAME_COUNT = 9999
 DECIMAL_PRECISION = 4
-THRESHOLD = 0.5
+THRESHOLD = 0.4
 GT_COLOR = (0, 255, 0)
 DATA_COLOR = (0, 0, 255)
 

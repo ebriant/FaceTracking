@@ -95,7 +95,6 @@ def get_bbox_dist(bbox1, bbox2):
 
 
 def resize_bbox(bbox, img, scale=1, make_square=False):
-
     x_c = bbox[0] + bbox[2] / 2
     y_c = bbox[1] + bbox[3] / 2
 
@@ -110,7 +109,7 @@ def resize_bbox(bbox, img, scale=1, make_square=False):
     xmax = int(min(img.shape[0], x_c + width / 2))
     ymax = int(min(img.shape[1], y_c + height / 2))
 
-    return [xmin, ymin, xmax-xmin, ymax-ymin]
+    return [xmin, ymin, xmax - xmin, ymax - ymin]
 
 
 def get_roi(bbox, img, scale=config.roi_ratio):

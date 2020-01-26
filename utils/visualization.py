@@ -1,13 +1,8 @@
-import cv2
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from PIL import Image
-import numpy as np
 import os
-import config
-import random
 from math import cos, sin
+import cv2
+import numpy as np
+import config
 
 
 class ImageProcessor:
@@ -55,7 +50,7 @@ class ImageProcessor:
 
     def plot_facial_features(self, landmarks_list, size=1):
         for i in range(0, 68):
-            cv2.circle(self.img, (int(landmarks_list[i, 0]), int(landmarks_list[i, 1])), size, color=(0, 0, 255))
+            cv2.circle(self.img, (int(landmarks_list[0][i]), int(landmarks_list[1][i])), size, color=(255, 255, 255))
 
     def select_bbox(self, bboxes_list, *, title="image"):
         selected_bbox = []
@@ -67,6 +62,7 @@ class ImageProcessor:
 
         def mouse_position(event, x, y, flags, param):
             if event == cv2.EVENT_LBUTTONDOWN:
+                print(x,y)
                 for bbox in bboxes_list:
                     if is_in_bbox(bbox, x, y):
                         name = input("Enter a name for the selected children: ")

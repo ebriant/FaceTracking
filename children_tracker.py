@@ -8,7 +8,6 @@ from PIL import Image
 import matplotlib.image as mpimg
 import visualization
 import face_alignment
-
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
@@ -43,7 +42,7 @@ config_proto.gpu_options.allow_growth = True
 
 logging.basicConfig(level=config.logging_level)
 
-START_FRAME = 1
+START_FRAME = 540
 
 
 class MainTracker:
@@ -83,8 +82,9 @@ class MainTracker:
             bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
 
             # Let the user choose which faces to follow
-            self.visualizer.prepare_img(self.cur_img, 0)
+            self.visualizer.prepare_img(self.cur_img, 0, cvt_color=True)
             _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
+
             for idx, name in enumerate(names_list):
                 self.tmp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
                 self.data[name] = {config.BBOX_KEY: []}
@@ -118,7 +118,7 @@ class MainTracker:
             for name, data in self.data.items():
                 self.set_up_tracker(name, data[config.BBOX_KEY][0])
 
-            frame_idx = START_FRAME
+            frame_idx = config.start_frame
             while frame_idx < len(self.s_frames):
                 self.tmp_track = {}
                 last_frame = min(frame_idx + config.checking_rate, len(self.s_frames))
@@ -133,7 +133,7 @@ class MainTracker:
                         self.tmp_track[name] = {config.BBOX_KEY: bbox}
 
                     self.cur_img = cur_frame * 255
-                    self.visualizer.prepare_img(self.cur_img, idx)
+                    self.visualizer.prepare_img(self.cur_img, idx, cvt_color=True)
 
                     # Check the overlay every frame
                     issues = self.check_overlay()

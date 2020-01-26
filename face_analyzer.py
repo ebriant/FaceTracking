@@ -46,19 +46,6 @@ class FaceAnalizer:
             self.data[name].append(None)
         else:
             landmarks = np.array(landmarks)[0]
-            # lm2 = copy.deepcopy(landmarks)
-            # utils.rotate_landmarks(landmarks, face, -angle)
-            # utils.landmarks_img_coord(landmarks, crop_coord)
-            #
-            # self.visualizer.prepare_img(self.cur_img)
-            # self.visualizer.plot_facial_features(landmarks, size=2)
-            # self.visualizer.resize(1)
-            # self.visualizer.plt_img({})
-
-            # self.visualizer.prepare_img(face)
-            # self.visualizer.plot_facial_features(lm2, size=2)
-            # self.visualizer.resize(1)
-            # self.visualizer.plt_img({})
 
             orientation = list(face_alignment.face_orientation(landmarks[43:48], landmarks[36:42], landmarks[8]))
 

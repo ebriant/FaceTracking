@@ -3,13 +3,15 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
-video_path = os.path.join(data_dir, "videos/171214_1.MP4")
-out_dir = os.path.join(data_dir, "output/171214_1_vr30")
+video_path = os.path.join(data_dir, "videos/171218_2_1.MP4")
+out_dir = os.path.join(data_dir, "output/171218_2_1")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
-max_frame = 20000
+max_frame = 12000
+start_frame = 1
+
 if video_path[-12:] == "171214_1.MP4":
     init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
             'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
@@ -18,8 +20,24 @@ elif video_path[-12:] == "171214_2.MP4":
     init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
             'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
             'k': {'bbox': [361, 240, 100, 77]}}
+elif video_path[-14:] == "171218_1_1.MP4":
+    init = {'l': {'bbox': [376, 230, 65, 54]}, 'b': {'bbox': [281, 120, 43, 55]},
+            'c': {'bbox': [176, 220, 60, 54]}, 'e': {'bbox': [158, 379, 55, 48]},
+            'f': {'bbox': [376, 515, 111, 94]}}
+    # Frame 540
+    # init = {'l': {"bbox": [384, 229, 69, 45]},
+    #         'b': {"bbox": [290, 149, 46, 53]},
+    #         'c': {"bbox": [140, 259, 82, 50]},
+    #         'e': {"bbox": [161, 385, 57, 45]},
+    #         'f': {"bbox": [367, 462, 95, 70]}}
+
+elif video_path[-14:] == "171218_2_1.MP4":
+    init = {'a': {'bbox': [415, 260, 67, 54]}, 'k': {'bbox': [335, 130, 58, 63]},
+            'g': {'bbox': [160, 193, 66, 75]}, 'd': {'bbox': [152, 406, 55, 50]},
+            'i': {'bbox': [290, 522, 37, 40]}, 'j': {'bbox': [470, 327, 110, 151]}}
+
 else:
-    init = {}
+    init = None
 
 angle_proximity_treshhold = 5
 checking_rate = 30
@@ -36,6 +54,9 @@ conf_ud_rt = confidence_update_rate
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
 LANDMARKS_KEY = "landmarks"
+PITCH_KEY = "pitch"
+YAW_KEY = "yaw"
+ROLL_KEY = "roll"
 BBOX_COLOR = (0, 1, 0)
 SELECTED_COLOR = (0.8, 0, 0)
 
