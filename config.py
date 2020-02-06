@@ -3,23 +3,26 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
-video_path = os.path.join(data_dir, "videos/171218_2_1.MP4")
-out_dir = os.path.join(data_dir, "output/171218_2_1")
+video_path = os.path.join(data_dir, "videos/171220_1_2.MP4")
+out_dir = os.path.join(data_dir, "output/171220_1_2")
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
 # img_scale = 1
-max_frame = 12000
-start_frame = 1
+start_frame = 14700
+max_frame = 16500
 
 if video_path[-12:] == "171214_1.MP4":
     init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
             'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},
             'e': {'bbox': [427, 443, 61, 43]}, 'f': {'bbox': [421, 230, 63, 39]}}
 elif video_path[-12:] == "171214_2.MP4":
-    init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
-            'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
-            'k': {'bbox': [361, 240, 100, 77]}}
+    init = {'g': {'bbox': [170, 220, 50, 80]}, 'h': {'bbox': [208, 310, 131, 109]}, 'i': {'bbox': [316, 483, 31, 50]},
+            'j': {'bbox': [413, 408, 67, 41]}, 'k': {'bbox': [415, 280, 50, 50]}}
+    # init = {'g': {'bbox': [124, 245, 63, 49]}, 'h': {'bbox': [176, 431, 63, 60]},
+    #         'i': {'bbox': [315, 493, 17, 48]}, 'j': {'bbox': [403, 439, 47, 51]},
+    #         'k': {'bbox': [361, 240, 100, 77]}}
+
 elif video_path[-14:] == "171218_1_1.MP4":
     init = {'l': {'bbox': [376, 230, 65, 54]}, 'b': {'bbox': [281, 120, 43, 55]},
             'c': {'bbox': [176, 220, 60, 54]}, 'e': {'bbox': [158, 379, 55, 48]},

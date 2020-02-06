@@ -42,8 +42,6 @@ config_proto.gpu_options.allow_growth = True
 
 logging.basicConfig(level=config.logging_level)
 
-START_FRAME = 540
-
 
 class MainTracker:
     def __init__(self):
@@ -74,7 +72,8 @@ class MainTracker:
 
     def start_tracking(self):
         # # Detect faces in the first image
-        self.cur_img = mpimg.imread(self.s_frames[0])
+        print(len(self.s_frames))
+        self.cur_img = mpimg.imread(self.s_frames[config.start_frame])
         self.cur_img = np.array(self.cur_img)
 
         if config.init is None:
@@ -82,7 +81,7 @@ class MainTracker:
             bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
 
             # Let the user choose which faces to follow
-            self.visualizer.prepare_img(self.cur_img, 0, cvt_color=True)
+            self.visualizer.prepare_img(self.cur_img, config.start_frame, cvt_color=True)
             _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
 
             for idx, name in enumerate(names_list):

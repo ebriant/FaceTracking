@@ -55,7 +55,7 @@ class ImageProcessor:
     def select_bbox(self, bboxes_list, *, title="image"):
         selected_bbox = []
         names_list = []
-
+        self.tmp_bbox = []
         for bbox in bboxes_list:
             self.draw_bbox(bbox, color=self.BBOX_COLOR)
             # self.draw_bbox(data[config.BBOX_KEY], label=name, color=color)
@@ -70,6 +70,18 @@ class ImageProcessor:
                         self.draw_bbox(bbox, label=name, color=self.SELECTED_COLOR)
                         cv2.imshow(title, self.img)
                         selected_bbox.append(bbox)
+            if event == cv2.EVENT_RBUTTONDOWN:
+                print(x,y)
+                self.tmp_bbox.append(x)
+                self.tmp_bbox.append(y)
+            if event == cv2.EVENT_RBUTTONUP:
+                print(x, y, self.tmp_bbox)
+                tmp_bbox = [min(self.tmp_bbox[0],x),min(self.tmp_bbox[1],y), abs(self.tmp_bbox[0]-x), abs(self.tmp_bbox[1]-y)]
+                print(tmp_bbox)
+                bboxes_list.append(tmp_bbox)
+                self.draw_bbox(tmp_bbox, color=self.BBOX_COLOR)
+                cv2.imshow(title, self.img)
+                self.tmp_bbox =[]
 
         def is_in_bbox(box, x, y):
             if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
