@@ -1,10 +1,7 @@
-import cv2
-import utils
 import data_handler
 import config
 import visualization
 import os
-import math
 
 MAX_FRAME = 3000
 OVERWRITE = True

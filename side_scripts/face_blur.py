@@ -1,7 +1,5 @@
 import cv2
 import utils
-import data_handler
-import config
 import visualization
 import children_tracker
 import os

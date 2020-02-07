@@ -12,6 +12,7 @@ save_img = True
 start_frame = 14700
 max_frame = 16500
 
+
 if video_path[-12:] == "171214_1.MP4":
     init = {'a': {'bbox': [300, 183, 57, 49]}, 'b': {'bbox': [139, 201, 53, 45]},
             'c': {'bbox': [94, 296, 77, 98]}, 'd': {'bbox': [317, 472, 48, 63]},

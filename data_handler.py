@@ -1,25 +1,28 @@
+import json
 import config
 import os
 
 
 # Data should be x y w h
-class DataHandler:
-    def __init__(self, path):
+class DataManager:
+    def __init__(self, dir):
+        self.dir = dir
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
 
-        self.dump_file = path
-        with open(self.dump_file, "w+"):
-            return
+    def write_data(self, data, video, frame):
+        file = "%s_%s.json" % (video, frame)
+        path = os.path.join(self.dir, file)
 
-    def write_data(self, bbox):
-        with open(self.dump_file, "a") as f:
-            f.write("%d %d %d %d\n" % tuple(bbox))
+        with open(path, 'w') as outfile:
+            json.dump(data, outfile)
+        print("file written")
 
-
-def save_data(dump_file_path, data):
-    with open(dump_file_path, "w+") as f:
-        f.write(str(data))
-
-def get_data(file):
-    with open(file, "r") as f:
-        data = eval(f.read())
-    return data
+    def get_data(self, file_path):
+        if file_path[:-5] == ".json":
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+        else:
+            with open(file_path, "r") as f:
+                data = eval(f.read())
+        return data

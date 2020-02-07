@@ -1,20 +1,8 @@
 import os
-import cv2
-import torch
-import torch.backends.cudnn as cudnn
-import torch.nn.functional as F
-import torchvision
-from PIL import Image
-from torch.autograd import Variable
-from torchvision import transforms
-import deep_head_pose.code.hopenet as hopenet
 import utils
 import data_handler
 import config
-import matplotlib.image as mpimg
-import numpy as np
 import visualization
-import time
 
 MAX_FRAME = 1000
 visualizer = visualization.ImageProcessor()

@@ -1,13 +1,15 @@
+import argparse
+import json
 import os
 import config
 import tensorflow as tf
 import numpy as np
-import utils
+import utils as utils
+from visualization import ImageProcessor
 import logging
 from PIL import Image
 import matplotlib.image as mpimg
-import visualization
-import face_alignment
+from data_handler import DataManager
 from PyramidBox.preprocessing import ssd_vgg_preprocessing
 from PyramidBox.nets.ssd import g_ssd_model
 import PyramidBox.nets.np_methods as np_methods
@@ -46,37 +48,42 @@ logging.basicConfig(level=config.logging_level)
 class MainTracker:
     def __init__(self):
         self.model = None
-        self.visualizer = visualization.ImageProcessor()
-        self.face_aligner = face_alignment.FaceAligner()
+        self.visualizer = ImageProcessor()
         self.trackers_list = {}
-        self.lt_trackers_list = {}
-
+        self.data_manager = DataManager(args.out_dir)
         # Load the video sequence
-        self.s_frames = utils.get_video_frames()
+        self.s_frames = utils.get_video_frames(args.video, args.frames[0], args.frames[1])
         if not os.path.exists(config.out_dir):
             os.mkdir(config.out_dir)
-        _, video_name = os.path.split(config.video_path)
-        self.dump_file_path = os.path.join(config.out_dir, "{}.txt".format(video_name[:-4]))
+        _, video_name = os.path.split(args.video)
+        self.video_name = video_name[:-4]
+        self.frame_data = {}
+        self.last_frame_data = {}
 
         self.confidence = {}
         self.data = {}
         self.tmp_track = {}
-        self.latent_track = {}
         self.angular_order = []
         self.cur_img = None
-        self.frame_number = 0
+        self.frame_number = args.frames[0]
 
-    def save_data(self):
-        with open(self.dump_file_path, "w+") as f:
-            f.write(str(self.data))
+    def write_frame_data(self, data=None):
+        if data is None:
+            data = self.frame_data
+        file = "%s_%s.json" % (args.video, self.frame_number)
+        path = os.path.join(args.out_dir, file)
+
+        with open(path, 'w') as outfile:
+            json.dump(data, outfile)
+        print("file written")
 
     def start_tracking(self):
         # # Detect faces in the first image
         print(len(self.s_frames))
-        self.cur_img = mpimg.imread(self.s_frames[config.start_frame])
+        self.cur_img = mpimg.imread(self.s_frames[0])
         self.cur_img = np.array(self.cur_img)
 
-        if config.init is None:
+        if args.init is None:
             _, _, rbboxes = detect_faces(self.cur_img)
             bboxes_list = [utils.reformat_bbox_coord(bbox, self.cur_img.shape[0]) for bbox in rbboxes]
 
@@ -85,20 +92,17 @@ class MainTracker:
             _, bboxes_list, names_list = self.visualizer.select_bbox(bboxes_list)
 
             for idx, name in enumerate(names_list):
-                self.tmp_track[name] = {config.BBOX_KEY: bboxes_list[idx]}
-                self.data[name] = {config.BBOX_KEY: []}
-            self.merge_temp()
-            print(self.tmp_track)
+                self.last_frame_data[name] = {config.BBOX_KEY: bboxes_list[idx]}
+            print(self.last_frame_data)
 
         else:
-            self.tmp_track = config.init
-            for name in self.tmp_track:
-                self.data[name] = {config.BBOX_KEY: []}
-            self.merge_temp()
+            with open(args.init, 'r') as f:
+                self.last_frame_data = json.load(f)
 
-        for name in self.tmp_track:
-            self.confidence[name] = 1
-        angles_dict = utils.get_bbox_dict_ang_pos(self.tmp_track, self.cur_img.shape)
+        self.data_manager.write_data(self.last_frame_data, self.video_name, self.frame_number)
+        self.frame_number += 1
+
+        angles_dict = utils.get_bbox_dict_ang_pos(self.last_frame_data, self.cur_img.shape)
         for name in sorted(angles_dict, key=angles_dict.get):
             self.angular_order.append(name)
 
@@ -109,49 +113,41 @@ class MainTracker:
         tracker = Tracker(self.model)
         tracker.initialize(self.s_frames[self.frame_number], bbox)
         self.trackers_list[name] = tracker
-        self.lt_trackers_list[name] = tracker
 
     def track_all(self):
         with tf.Graph().as_default(), tf.Session(config=config_proto) as sess:
             self.model = Model(sess)
-            for name, data in self.data.items():
-                self.set_up_tracker(name, data[config.BBOX_KEY][0])
+            for name, data in self.last_frame_data.items():
+                self.set_up_tracker(name, data[config.BBOX_KEY])
 
-            frame_idx = config.start_frame
-            while frame_idx < len(self.s_frames):
-                self.tmp_track = {}
-                last_frame = min(frame_idx + config.checking_rate, len(self.s_frames))
+            while self.frame_number < args.frames[1]:
+                logging.info("Processing frame {}".format(self.frame_number))
 
-                for idx in range(frame_idx, last_frame):
-                    self.frame_number = idx
-                    logging.info("Processing frame {}".format(idx))
-                    for name, tracker in self.trackers_list.items():
-                        tracker.idx += 1
-                        bbox, cur_frame = tracker.track(self.s_frames[self.frame_number])
-                        bbox = [int(i) for i in bbox]
-                        self.tmp_track[name] = {config.BBOX_KEY: bbox}
+                for name, tracker in self.trackers_list.items():
+                    tracker.idx += 1
+                    bbox, cur_frame = tracker.track(self.s_frames[self.frame_number])
+                    bbox = [int(i) for i in bbox]
+                    self.frame_data[name] = {config.BBOX_KEY: bbox}
 
-                    self.cur_img = cur_frame * 255
-                    self.visualizer.prepare_img(self.cur_img, idx, cvt_color=True)
+                self.cur_img = cur_frame * 255
+                self.visualizer.prepare_img(self.cur_img, self.frame_number, cvt_color=True)
 
-                    # Check the overlay every frame
-                    issues = self.check_overlay()
-                    if issues:
-                        self.correct_overlay(issues)
-                    if idx != last_frame - 1:
-                        self.visualizer.plt_img(self.tmp_track)
-                        self.visualizer.save_img(config.out_dir)
+                # Check the overlay every frame
+                issues = self.check_overlay()
+                if issues:
+                    self.correct_overlay(issues)
 
-                        self.merge_temp()
+                if (self.frame_number - args.frames[0])% args.rate == args.rate - 1:
+                    self.perform_corrections()
 
-                # Check if the bbox is a face
-                frame_idx = last_frame
-                self.check_faces()
-                self.merge_temp()
-                # Visualization
-                self.visualizer.plt_img(self.tmp_track)
+                self.visualizer.plt_img(self.frame_data)
                 self.visualizer.save_img(config.out_dir)
-                self.save_data()
+                self.data_manager.write_data(self.frame_data, self.video_name, self.frame_number)
+
+                self.last_frame_data = self.frame_data
+                self.frame_number += 1
+                # Check if the bbox is a face
+
             return
 
     def update_confidence(self, name, confidence=0.0):
@@ -162,7 +158,7 @@ class MainTracker:
             self.data[name][config.BBOX_KEY].append(list(self.tmp_track[name][config.BBOX_KEY]))
 
     def check_size(self):
-        for name, data in self.tmp_track.items():
+        for name, data in self.frame_data.items():
             bbox = data[config.BBOX_KEY]
             if bbox[2] < config.min_bbox_size or bbox[3] < config.min_bbox_size:
                 prev_bbox = self.data[name][config.BBOX_KEY][-1]
@@ -171,8 +167,8 @@ class MainTracker:
     def check_overlay(self):
         issues = []
         checked = []
-        for name, data in self.tmp_track.items():
-            for name2, data2 in self.tmp_track.items():
+        for name, data in self.frame_data.items():
+            for name2, data2 in self.frame_data.items():
                 if name != name2 and name2 not in checked and \
                         (utils.bb_intersection_over_union(data[config.BBOX_KEY], data2[
                             config.BBOX_KEY]) > config.tracking_overlay_threshold or utils.bb_contained(
@@ -189,8 +185,8 @@ class MainTracker:
         for issue in issues:
             name1 = issue[0]
             name2 = issue[1]
-            data1 = self.tmp_track[name1]
-            data2 = self.tmp_track[name2]
+            data1 = self.frame_data[name1]
+            data2 = self.frame_data[name2]
 
             bbox1 = data1[config.BBOX_KEY]
             bbox2 = data2[config.BBOX_KEY]
@@ -212,17 +208,18 @@ class MainTracker:
     def plot_overlay(self, issues):
         color = (0, 255, 255)
         for issue in issues:
-            bbox1 = self.tmp_track[issue[0]][config.BBOX_KEY]
-            bbox2 = self.tmp_track[issue[1]][config.BBOX_KEY]
+            bbox1 = self.frame_data[issue[0]][config.BBOX_KEY]
+            bbox2 = self.frame_data[issue[1]][config.BBOX_KEY]
             vizu1 = [bbox1[0] - 2, bbox1[1] - 2, bbox1[2] + 4, bbox1[3] + 4]
             self.visualizer.draw_bbox(vizu1, color=color, thickness=2)
             vizu2 = [bbox2[0] - 2, bbox2[1] - 2, bbox2[2] + 4, bbox2[3] + 4]
             self.visualizer.draw_bbox(vizu2, color=color, thickness=2)
         return
 
-    def check_faces(self):
+    def perform_corrections(self):
         if not self.check_angular_order():
             logging.warning("angular order is broken")
+
         _, score_fd_list, bbox_fd_list = detect_faces(self.cur_img, select_threshold=config.face_detection_iou_trh)
 
         if len(bbox_fd_list) == 0:
@@ -239,22 +236,15 @@ class MainTracker:
 
         self.plot_fd_elements(bbox_fd_list, score_fd_list)
 
-        # self.long_term_tracker()
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_iou(bbox_fd_list, score_fd_list)
         bbox_fd_list, score_fd_list, corrected_bbox = self.correct_faces_by_roi(bbox_fd_list, score_fd_list,
                                                                                 corrected_bbox)
-        bbox_fd_list, score_fd_list = self.correct_faces_by_proximity(bbox_fd_list, score_fd_list,
-                                                                              corrected_bbox)
+        bbox_fd_list, score_fd_list = self.correct_faces_by_cyclic_order(bbox_fd_list, score_fd_list,
+                                                                         corrected_bbox)
 
-        for name, data in self.tmp_track.items():
-            if name not in corrected_bbox:
-                self.update_confidence(name, 0)
 
-        logging.info(self.confidence)
         if len(bbox_fd_list) > 0:
             logging.warning("Detected faces unused")
-
-        self.latent_track = self.tmp_track.copy()
 
     def long_term_tracker(self):
         for name, tracker in self.lt_trackers_list.items():
@@ -272,7 +262,7 @@ class MainTracker:
         self.visualizer.plt_img({})
 
         # Draw ROI
-        for name, data in self.tmp_track.items():
+        for name, data in self.frame_data.items():
             bbox = data[config.BBOX_KEY]
             xmin, ymin, xmax, ymax = utils.get_roi(bbox, self.cur_img)
             roi = [xmin, ymin, xmax - xmin, ymax - ymin]
@@ -284,11 +274,11 @@ class MainTracker:
         if len(bbox_fd_list) == 0:
             return [], [], []
         candidates = {}
-        match_count = {name: 0 for name in self.tmp_track}
+        match_count = {name: 0 for name in self.frame_data}
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
             candidates[idx] = []
-            for name, data in self.tmp_track.items():
+            for name, data in self.frame_data.items():
                 bbox = data[config.BBOX_KEY]
                 iou = utils.bb_intersection_over_union(bbox, bbox_fd)
                 if iou > config.correction_overlay_threshold:
@@ -307,7 +297,6 @@ class MainTracker:
 
         for idx, c_list in candidates.items():
             if len(c_list) == 1:
-                self.update_confidence(c_list[0][0], 1)
                 self.correct_tracker(c_list[0][0], bbox_fd_list[idx])
                 corrected_bbox[c_list[0][0]] = {config.BBOX_KEY: bbox_fd_list[idx]}
                 indices.append(idx)
@@ -315,7 +304,6 @@ class MainTracker:
                 c = max(c_list, key=lambda x: x[1])
                 self.correct_tracker(c[0], bbox_fd_list[idx])
                 corrected_bbox[c[0]] = {config.BBOX_KEY: bbox_fd_list[idx]}
-                self.update_confidence(c[0], 1)
                 indices.append(idx)
                 logging.info("Bbox {} assigned to {} by max roi".format(bbox_fd_list[idx], c[0]))
 
@@ -333,12 +321,11 @@ class MainTracker:
 
         indices = []
         for idx, bbox_fd in enumerate(bbox_fd_list):
-            for name, data in self.tmp_track.items():
+            for name, data in self.frame_data.items():
                 bbox = data[config.BBOX_KEY]
                 if name not in corrected_bbox and utils.bbox_in_roi(bbox, bbox_fd, self.cur_img) \
                         and self.check_angular_position(name, bbox_fd):
                     self.correct_tracker(name, bbox_fd, True)
-                    self.update_confidence(name, 0.5)
                     corrected_bbox[name] = {config.BBOX_KEY: bbox_fd}
                     indices.append(idx)
                     break
@@ -347,7 +334,7 @@ class MainTracker:
         score_fd_list = [i for j, i in enumerate(score_fd_list) if j not in indices]
         return bbox_fd_list, score_fd_list, corrected_bbox
 
-    def correct_faces_by_proximity(self, bbox_fd_list, score_fd_list, corrected_bbox):
+    def correct_faces_by_cyclic_order(self, bbox_fd_list, score_fd_list, corrected_bbox):
         if len(bbox_fd_list) == 0:
             return [], []
 
@@ -367,7 +354,7 @@ class MainTracker:
                 verified_names.append(name)
 
         not_corrected_bbox_angles = {k: utils.get_angle(v[config.BBOX_KEY], self.cur_img.shape) for k, v in
-                                     self.tmp_track.items() if k not in corrected_bbox}
+                                     self.frame_data.items() if k not in corrected_bbox}
         if not not_corrected_bbox_angles:
             return [], []
 
@@ -457,8 +444,8 @@ class MainTracker:
             return self.angular_order[idx1:] + self.angular_order[:idx2]
 
     def get_bbox_between_id(self, id1, id2, bbox_fd_list):
-        a1 = utils.get_angle(self.tmp_track[id1][config.BBOX_KEY], self.cur_img.shape)
-        a2 = utils.get_angle(self.tmp_track[id2][config.BBOX_KEY], self.cur_img.shape)
+        a1 = utils.get_angle(self.frame_data[id1][config.BBOX_KEY], self.cur_img.shape)
+        a2 = utils.get_angle(self.frame_data[id2][config.BBOX_KEY], self.cur_img.shape)
         bbox_list = [i for i in bbox_fd_list if utils.is_between(a1, a2, utils.get_angle(i, self.cur_img.shape))]
         angle_list = []
 
@@ -482,7 +469,7 @@ class MainTracker:
         return True
 
     def correct_tracker(self, name, bbox, replace=False):
-        self.tmp_track[name][config.BBOX_KEY] = bbox
+        self.frame_data[name][config.BBOX_KEY] = bbox
         if replace:
             tracker = Tracker(self.model)
             tracker.initialize(self.s_frames[self.frame_number], bbox)
@@ -495,10 +482,10 @@ class MainTracker:
         for bbox_fd in fd_bbox_list:
             if utils.bb_intersection_over_union(bbox, bbox_fd) > config.correction_overlay_threshold:
                 return False, bbox_fd
-            elif ((name2 != name and utils.bb_intersection_over_union(self.tmp_track[name2][config.BBOX_KEY],
+            elif ((name2 != name and utils.bb_intersection_over_union(self.frame_data[name2][config.BBOX_KEY],
                                                                       bbox_fd) < config.correction_overlay_threshold)
                   for name2 in
-                  self.tmp_track):
+                  self.frame_data):
                 corrected_bbox.append(bbox_fd)
 
         if len(corrected_bbox) == 0:
@@ -517,12 +504,12 @@ class MainTracker:
         idx = ang_order.index(name)
         prev = self.angular_order[(idx - 1) % l]
         next = self.angular_order[(idx + 1) % l]
-        angles_dict = utils.get_bbox_dict_ang_pos(self.tmp_track, self.cur_img.shape)
+        angles_dict = utils.get_bbox_dict_ang_pos(self.frame_data, self.cur_img.shape)
         start, end = angles_dict[prev], angles_dict[next]
         return utils.is_between(start, end, angle)
 
     def check_angular_order(self):
-        angles_dict = utils.get_bbox_dict_ang_pos(self.tmp_track, self.cur_img.shape)
+        angles_dict = utils.get_bbox_dict_ang_pos(self.frame_data, self.cur_img.shape)
         tmp_order = []
         for name in sorted(angles_dict, key=angles_dict.get):
             tmp_order.append(name)
@@ -572,5 +559,13 @@ def detect_faces(img, select_threshold=0.35, nms_threshold=0.1):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Kiwi Training')
+    parser.add_argument('-v', '--video', type=str, help="video to use")
+    parser.add_argument('-f', '--frames', nargs='+', type=int, help="frames range")
+    parser.add_argument('-i', '--init', type=str, help="initialization file")
+    parser.add_argument('-o', '--out_dir', type=str, help="Output directory")
+    parser.add_argument('-r', '--rate', type=int, default=30, help='rate of correction application')
+
+    args = parser.parse_args()
     main_tracker = MainTracker()
     main_tracker.start_tracking()

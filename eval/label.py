@@ -1,9 +1,6 @@
-import matplotlib.image as mpimg
-import numpy as np
 import argparse
 import os
 import config
-import cv2
 import utils
 import visualization
 

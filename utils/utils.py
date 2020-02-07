@@ -8,40 +8,44 @@ import torch
 from math import cos, sin
 
 
-def get_video_frames():
-    cap = cv2.VideoCapture(config.video_path)
-    _, video_name = os.path.split(config.video_path)
+def exists(frames_files):
+    for f in frames_files:
+        if not os.path.exists(f):
+            return False
+    return True
+
+
+def get_video_frames(video_path=config.video_path, start=0, end=config.max_frame):
+    cap = cv2.VideoCapture(video_path)
+    _, video_name = os.path.split(video_path)
     img_dir_path = os.path.join(config.img_dir, video_name[:-4])
+
     if not os.path.exists(img_dir_path):
         os.mkdir(img_dir_path)
 
-    # Check if camera opened successfully
     if cap.isOpened() is False:
         print("Error opening video stream or file")
 
-    # Read until video is completed
-    if int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) != len(os.listdir(img_dir_path)):
-        frm_count = 0
-        while cap.isOpened() and frm_count < config.max_frame:
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+    frames_files = []
+    for i in range(start,end):
+        frames_files.append(os.path.join(img_dir_path, "%05d.jpg" % i))
+
+    if not exists(frames_files):
+        frm_count = start
+        while cap.isOpened() and frm_count < end:
             # Capture frame-by-frame
             ret, frame = cap.read()
             if ret:
                 # Display the resulting frame
                 img_write_path = os.path.join(img_dir_path, "%05d.jpg" % frm_count)
-                if not os.path.exists(img_write_path):
-                    cv2.imwrite(img_write_path, frame)
+                cv2.imwrite(img_write_path, frame)
                 frm_count += 1
             # Break the loop
             else:
                 break
-
-    # When everything done, release the video capture object
-    cap.release()
-
-    img_names = sorted(os.listdir(img_dir_path))
-    s_frames = [os.path.join(img_dir_path, img_name) for img_name in img_names[:min(config.max_frame, len(img_names))]]
-
-    return s_frames
+        cap.release()
+    return frames_files
 
 
 # Bbox coord must be in Pixels and on the form (TL corner x, TL corner Y, Width, Height)

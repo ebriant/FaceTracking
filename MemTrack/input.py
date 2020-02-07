@@ -286,7 +286,7 @@ if __name__=='__main__':
     label, weights = _generate_labels_overlap_py(feat_size, label, (feat_size - 1)/2)
     DEBUG = True
     if DEBUG:
-        from utils.display_utils import display_train_input
+        from utils import display_train_input
 
     config_proto = tf.ConfigProto()
     config_proto.gpu_options.allow_growth = True
