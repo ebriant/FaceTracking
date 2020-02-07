@@ -3,8 +3,10 @@ import logging
 
 logging_level = logging.INFO
 data_dir = "data"
+
 video_path = os.path.join(data_dir, "videos/171220_1_2.MP4")
 out_dir = os.path.join(data_dir, "output/171220_1_2")
+
 img_dir = os.path.join(data_dir, "img")
 label_dir = os.path.join(data_dir, "labels")
 save_img = True
@@ -46,8 +48,8 @@ else:
 angle_proximity_treshhold = 5
 checking_rate = 30
 roi_ratio = 1.8
-roi_min_size = 80
-min_bbox_size = 30
+roi_min_size = 80 / 640
+min_bbox_size = 30 / 640
 max_bbox_size = 150
 correction_overlay_threshold = 0.4
 tracking_overlay_threshold = 0.25
@@ -57,6 +59,7 @@ conf_ud_rt = confidence_update_rate
 
 tracking_data = "data/tracking"
 BBOX_KEY = "bbox"
+FACE_CONFIDENCE_KEY = "face_confidence"
 LANDMARKS_KEY = "landmarks"
 PITCH_KEY = "pitch"
 YAW_KEY = "yaw"

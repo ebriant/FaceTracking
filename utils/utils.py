@@ -50,12 +50,12 @@ def get_video_frames(video_path=config.video_path, start=0, end=config.max_frame
 
 # Bbox coord must be in Pixels and on the form (TL corner x, TL corner Y, Width, Height)
 
-def reformat_bbox_coord(bbox, img_width, img_height=0):
+def reformat_bbox_coord(bbox, img_width=1, img_height=0):
     if img_height == 0:
         img_height = img_width
     result = [bbox[1] * img_width, bbox[0] * img_height, (bbox[3] - bbox[1]) * img_width,
               (bbox[2] - bbox[0]) * img_height]
-    result = [int(i) for i in result]
+    # result = [int(i) for i in result]
     return result
 
 
@@ -63,10 +63,9 @@ def bb_intersection_over_union(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
     xA, yA = max(boxA[0], boxB[0]), max(boxA[1], boxB[1])
     xB, yB = min(boxA[0] + boxA[2], boxB[0] + boxB[2]), min(boxA[1] + boxA[3], boxB[1] + boxB[3])
-
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    boxAArea = (boxA[2] + 1) * (boxA[3] + 1)
-    boxBArea = (boxB[2] + 1) * (boxB[3] + 1)
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    boxAArea = boxA[2] * boxA[3]
+    boxBArea = boxB[2] * boxB[3]
     return interArea / float(boxAArea + boxBArea - interArea)
 
 
@@ -207,18 +206,17 @@ def rotate_landmarks(landmarks, img, angle):
     return landmarks
 
 
-def get_bbox_dict_ang_pos(bbox_dict, img_shape):
+def get_bbox_dict_ang_pos(bbox_dict):
     angles_dict = {}
     for name, data in bbox_dict.items():
         bbox = data[config.BBOX_KEY]
-        angles_dict[name] = get_angle(bbox, img_shape)
+        angles_dict[name] = get_angle(bbox)
     return angles_dict
 
 
-def get_angle(bbox, img_shape):
-    x_c, y_c = img_shape[0] // 2, img_shape[1] // 2
-    x = bbox[0] + bbox[2] - x_c
-    y = img_shape[1] - (bbox[1] + bbox[3]) - y_c
+def get_angle(bbox):
+    x = bbox[0] + bbox[2] - 0.5
+    y = 0.5 - (bbox[1] + bbox[3])
     return np.degrees(np.arctan2(y, x))
 
 

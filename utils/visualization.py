@@ -6,13 +6,14 @@ import config
 
 
 class ImageProcessor:
-    def __init__(self, img=None):
+    def __init__(self, img=None, idx=0, cvt_color=False):
         self.img = None
         if img is not None:
-            self.prepare_img(img)
+            self.idx = idx
+            self.prepare_img(img, idx, cvt_color=cvt_color)
         self.BBOX_COLOR = tuple([int(a * 255) for a in reversed(config.BBOX_COLOR)])
         self.SELECTED_COLOR = tuple([int(a * 255) for a in reversed(config.SELECTED_COLOR)])
-        self.idx = 0
+        self.size = self.img.shape[0]
 
     def prepare_img(self, img, frame_idx=None, *, cvt_color=False, scaling=1):
         self.idx = frame_idx
@@ -22,7 +23,7 @@ class ImageProcessor:
         if scaling != 1:
             self.img = cv2.resize(self.img, None, fx=scaling, fy=scaling)
         if frame_idx is not None:
-            cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+            cv2.putText(self.img, "Frame %d" % self.idx, (20, 20), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
 
     def open_img_path(self, img_path, frame_idx=None, scaling=1):
         img = cv2.imread(img_path)
@@ -41,16 +42,15 @@ class ImageProcessor:
         cv2.imwrite(img_write_path, self.img)
 
     def draw_bbox(self, bbox, label="", color=(0, 255, 0), **kwargs):
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+        p1 = (int(bbox[0] * self.size), int(bbox[1] * self.size))
+        p2 = (int(bbox[0] * self.size + bbox[2] * self.size), int(bbox[1] * self.size + bbox[3] * self.size))
         cv2.rectangle(self.img, p1, p2, color, **kwargs)
-        p1 = (p1[0], p1[1] - 10)
-        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, 1, color)
-        return
+        p1 = (p1[0], p1[1] - 15)
+        cv2.putText(self.img, str(label), p1, cv2.FONT_HERSHEY_DUPLEX, self.size / 700, color)
 
-    def plot_facial_features(self, landmarks_list, size=1):
-        for i in range(0, 68):
-            cv2.circle(self.img, (int(landmarks_list[0][i]), int(landmarks_list[1][i])), size, color=(255, 255, 255))
+    def plt_frame_data(self, frame_data):
+        for name, item in frame_data.items():
+            self.draw_bbox(item[config.BBOX_KEY], name, color=self.BBOX_COLOR, thickness=2)
 
     def select_bbox(self, bboxes_list, *, title="image"):
         selected_bbox = []
@@ -62,7 +62,7 @@ class ImageProcessor:
 
         def mouse_position(event, x, y, flags, param):
             if event == cv2.EVENT_LBUTTONDOWN:
-                print(x,y)
+                print(x, y)
                 for bbox in bboxes_list:
                     if is_in_bbox(bbox, x, y):
                         name = input("Enter a name for the selected children: ")
@@ -71,20 +71,21 @@ class ImageProcessor:
                         cv2.imshow(title, self.img)
                         selected_bbox.append(bbox)
             if event == cv2.EVENT_RBUTTONDOWN:
-                print(x,y)
+                print(x, y)
                 self.tmp_bbox.append(x)
                 self.tmp_bbox.append(y)
             if event == cv2.EVENT_RBUTTONUP:
                 print(x, y, self.tmp_bbox)
-                tmp_bbox = [min(self.tmp_bbox[0],x),min(self.tmp_bbox[1],y), abs(self.tmp_bbox[0]-x), abs(self.tmp_bbox[1]-y)]
+                tmp_bbox = [min(self.tmp_bbox[0], x), min(self.tmp_bbox[1], y), abs(self.tmp_bbox[0] - x),
+                            abs(self.tmp_bbox[1] - y)]
                 print(tmp_bbox)
                 bboxes_list.append(tmp_bbox)
                 self.draw_bbox(tmp_bbox, color=self.BBOX_COLOR)
                 cv2.imshow(title, self.img)
-                self.tmp_bbox =[]
+                self.tmp_bbox = []
 
         def is_in_bbox(box, x, y):
-            if box[0] <= x <= box[0] + box[2] and box[1] <= y <= box[1] + box[3]:
+            if box[0] <= x / self.size <= box[0] + box[2] and box[1] <= y / self.size <= box[1] + box[3]:
                 return True
             return False
 
@@ -95,6 +96,17 @@ class ImageProcessor:
         cv2.waitKey()
         cv2.destroyAllWindows()
         return self.img, selected_bbox, names_list
+
+    def show(self):
+        title = "img"
+        cv2.namedWindow(title)
+        while True:
+            cv2.imshow(title, self.img)
+            if cv2.waitKey(1):
+                break
+
+    def get_img(self):
+        return self.img
 
     def plt_img(self, tracking_data=None, title="image"):
         if tracking_data is None:
@@ -148,6 +160,7 @@ class ImageProcessor:
                 cv2.imshow(title, self.img)
             if event == cv2.EVENT_LBUTTONUP:
                 bbox = [min(tmp_x, x), min(tmp_y, y), abs(tmp_x - x), abs(tmp_y - y)]
+                bbox = [x/self.size for x in bbox]
                 bbox_list.append(bbox)
                 self.draw_bbox(bbox, thickness=2)
 
@@ -173,37 +186,11 @@ class ImageProcessor:
         cv2.destroyAllWindows()
         return bbox_list
 
-    def draw_axis(self, yaw, pitch, roll, tdx=None, tdy=None, size=100):
-        pitch = pitch * np.pi / 180
-        yaw = -(yaw * np.pi / 180)
-        roll = roll * np.pi / 180
-
-        if tdx is None and tdy is None:
-            height, width = self.img.shape[:2]
-            tdx = width / 2
-            tdy = height / 2
-
-        # X-Axis pointing to right. drawn in red
-        x1 = size * (cos(yaw) * cos(roll)) + tdx
-        y1 = size * (cos(pitch) * sin(roll) + cos(roll) * sin(pitch) * sin(yaw)) + tdy
-
-        # Y-Axis | drawn in green
-        #        v
-        x2 = size * (-cos(yaw) * sin(roll)) + tdx
-        y2 = size * (cos(pitch) * cos(roll) - sin(pitch) * sin(yaw) * sin(roll)) + tdy
-
-        # Z-Axis (out of the screen) drawn in blue
-        x3 = size * (sin(yaw)) + tdx
-        y3 = size * (-cos(yaw) * sin(pitch)) + tdy
-
-        cv2.line(self.img, (int(tdx), int(tdy)), (int(x1), int(y1)), (0, 0, 255), 3)
-        cv2.line(self.img, (int(tdx), int(tdy)), (int(x2), int(y2)), (0, 255, 0), 3)
-        cv2.line(self.img, (int(tdx), int(tdy)), (int(x3), int(y3)), (255, 0, 0), 2)
-
     def blur_area(self, bbox, ksize=20):
-        sub_face = self.img[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        crop_box = [int(bbox[1] * self.size), int((bbox[1] + bbox[3]) * self.size),
+                    int(bbox[0]), int((bbox[0] + bbox[2]) * self.size)]
+        sub_face = self.img[crop_box[0]:crop_box[1], crop_box[2]:crop_box[3]]
         # apply a gaussian blur on this new recangle image
         sub_face = cv2.GaussianBlur(sub_face, (ksize, ksize), 30)
         # merge this blurry rectangle to our final image
-        self.img[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]] = sub_face
-
+        self.img[crop_box[0]:crop_box[1], crop_box[2]:crop_box[3]] = sub_face
